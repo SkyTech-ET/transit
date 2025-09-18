@@ -1,0 +1,372 @@
+using Microsoft.AspNetCore.Mvc;
+using Transit.Domain.Data;
+using Transit.Domain.Models.MOT;
+using Transit.Domain.Models.Shared;
+using Microsoft.EntityFrameworkCore;
+using Transit.Controllers;
+
+namespace Transit.API.Controllers.MOT;
+
+[ApiController]
+[Route("api/v1/[controller]")]
+public class ManagerController : BaseController
+{
+    private readonly ApplicationDbContext _context;
+    private readonly IHttpContextAccessor _httpContextAccessor;
+
+    public ManagerController(ApplicationDbContext context, IHttpContextAccessor httpContextAccessor)
+    {
+        _context = context;
+        _httpContextAccessor = httpContextAccessor;
+    }
+
+    /// <summary>
+    /// Get dashboard analytics and key metrics
+    /// </summary>
+    [HttpGet("dashboard")]
+    public async Task<IActionResult> GetDashboard()
+    {
+        var currentUserId = GetCurrentUserId();
+        if (currentUserId == null)
+            return Unauthorized("User not authenticated");
+
+        // Verify user is manager
+        if (!await IsManager(currentUserId.Value))
+            return Forbid("Access denied. Manager role required.");
+
+        var dashboard = new ManagerDashboardResponse
+        {
+            TotalServices = await _context.Services.CountAsync(),
+            PendingServices = await _context.Services.CountAsync(s => s.Status == ServiceStatus.Submitted),
+            InProgressServices = await _context.Services.CountAsync(s => s.Status == ServiceStatus.InProgress),
+            CompletedServices = await _context.Services.CountAsync(s => s.Status == ServiceStatus.Completed),
+            TotalCustomers = await _context.Customers.CountAsync(),
+            VerifiedCustomers = await _context.Customers.CountAsync(c => c.IsVerified),
+            TotalStaff = await _context.Users.CountAsync(),
+            ActiveStaff = await _context.Users.CountAsync(u => u.RecordStatus == RecordStatus.Active)
+        };
+
+        // Get recent services
+        dashboard.RecentServices = await _context.Services
+            .Include(s => s.Customer)
+            .Include(s => s.AssignedCaseExecutor)
+            .OrderByDescending(s => s.RegisteredDate)
+            .Take(10)
+            .ToListAsync();
+
+        // Get service completion rates by month
+        var currentDate = DateTime.UtcNow;
+        var sixMonthsAgo = currentDate.AddMonths(-6);
+        
+        dashboard.MonthlyServiceStats = await _context.Services
+            .Where(s => s.RegisteredDate >= sixMonthsAgo)
+            .GroupBy(s => new { s.RegisteredDate.Year, s.RegisteredDate.Month })
+            .Select(g => new MonthlyServiceStat
+            {
+                Year = g.Key.Year,
+                Month = g.Key.Month,
+                TotalServices = g.Count(),
+                CompletedServices = g.Count(s => s.Status == ServiceStatus.Completed),
+                CompletionRate = g.Count(s => s.Status == ServiceStatus.Completed) * 100.0 / g.Count()
+            })
+            .OrderBy(s => s.Year)
+            .ThenBy(s => s.Month)
+            .ToListAsync();
+
+        return HandleSuccessResponse(dashboard);
+    }
+
+    /// <summary>
+    /// Get all services with filtering options
+    /// </summary>
+    [HttpGet("services")]
+    public async Task<IActionResult> GetAllServices(
+        [FromQuery] ServiceStatus? status = null,
+        [FromQuery] ServiceType? type = null,
+        [FromQuery] long? customerId = null,
+        [FromQuery] long? caseExecutorId = null,
+        [FromQuery] int page = 1,
+        [FromQuery] int pageSize = 20)
+    {
+        var currentUserId = GetCurrentUserId();
+        if (currentUserId == null)
+            return Unauthorized("User not authenticated");
+
+        if (!await IsManager(currentUserId.Value))
+            return Forbid("Access denied. Manager role required.");
+
+        var query = _context.Services
+            .Include(s => s.Customer)
+            .Include(s => s.AssignedCaseExecutor)
+            .Include(s => s.AssignedAssessor)
+            .Include(s => s.CreatedByDataEncoder)
+            .AsQueryable();
+
+        if (status.HasValue)
+            query = query.Where(s => s.Status == status.Value);
+
+        if (type.HasValue)
+            query = query.Where(s => s.ServiceType == type.Value);
+
+        if (customerId.HasValue)
+            query = query.Where(s => s.CustomerId == customerId.Value);
+
+        if (caseExecutorId.HasValue)
+            query = query.Where(s => s.AssignedCaseExecutorId == caseExecutorId.Value);
+
+        var totalCount = await query.CountAsync();
+        var services = await query
+            .OrderByDescending(s => s.RegisteredDate)
+            .Skip((page - 1) * pageSize)
+            .Take(pageSize)
+            .ToListAsync();
+
+        var result = new PaginatedResult<Service>
+        {
+            Data = services,
+            TotalCount = totalCount,
+            Page = page,
+            PageSize = pageSize,
+            TotalPages = (int)Math.Ceiling((double)totalCount / pageSize)
+        };
+
+        return HandleSuccessResponse(result);
+    }
+
+    /// <summary>
+    /// Get service details for management oversight
+    /// </summary>
+    [HttpGet("services/{serviceId}")]
+    public async Task<IActionResult> GetServiceDetails(long serviceId)
+    {
+        var currentUserId = GetCurrentUserId();
+        if (currentUserId == null)
+            return Unauthorized("User not authenticated");
+
+        if (!await IsManager(currentUserId.Value))
+            return Forbid("Access denied. Manager role required.");
+
+        var service = await _context.Services
+            .Include(s => s.Customer)
+            .Include(s => s.AssignedCaseExecutor)
+            .Include(s => s.AssignedAssessor)
+            .Include(s => s.CreatedByDataEncoder)
+            .Include(s => s.Stages)
+                .ThenInclude(stage => stage.StageComments)
+            .Include(s => s.Stages)
+                .ThenInclude(stage => stage.Documents)
+            .Include(s => s.Documents)
+            .Include(s => s.Messages)
+            .FirstOrDefaultAsync(s => s.Id == serviceId);
+
+        if (service == null)
+            return NotFound("Service not found");
+
+        return HandleSuccessResponse(service);
+    }
+
+    /// <summary>
+    /// Assign case executor to a service
+    /// </summary>
+    [HttpPut("services/{serviceId}/assign-executor")]
+    public async Task<IActionResult> AssignCaseExecutor(long serviceId, [FromBody] AssignExecutorRequest request)
+    {
+        var currentUserId = GetCurrentUserId();
+        if (currentUserId == null)
+            return Unauthorized("User not authenticated");
+
+        if (!await IsManager(currentUserId.Value))
+            return Forbid("Access denied. Manager role required.");
+
+        var service = await _context.Services
+            .FirstOrDefaultAsync(s => s.Id == serviceId);
+
+        if (service == null)
+            return NotFound("Service not found");
+
+        // Verify the assigned user is a case executor
+        var caseExecutor = await _context.Users
+            .Include(u => u.UserRoles)
+            .ThenInclude(ur => ur.Role)
+            .FirstOrDefaultAsync(u => u.Id == request.CaseExecutorId);
+
+        if (caseExecutor == null)
+            return NotFound("Case executor not found");
+
+        var isCaseExecutor = caseExecutor.UserRoles.Any(ur => ur.Role.Name == "CaseExecutor");
+        if (!isCaseExecutor)
+            return BadRequest("User is not a case executor");
+
+        service.AssignCaseExecutor(request.CaseExecutorId);
+        await _context.SaveChangesAsync();
+
+        return HandleSuccessResponse(service);
+    }
+
+    /// <summary>
+    /// Get all customers with filtering
+    /// </summary>
+    [HttpGet("customers")]
+    public async Task<IActionResult> GetAllCustomers(
+        [FromQuery] bool? isVerified = null,
+        [FromQuery] string? searchTerm = null,
+        [FromQuery] int page = 1,
+        [FromQuery] int pageSize = 20)
+    {
+        var currentUserId = GetCurrentUserId();
+        if (currentUserId == null)
+            return Unauthorized("User not authenticated");
+
+        if (!await IsManager(currentUserId.Value))
+            return Forbid("Access denied. Manager role required.");
+
+        var query = _context.Customers
+            .Include(c => c.User)
+            .Include(c => c.CreatedByDataEncoder)
+            .Include(c => c.VerifiedByUser)
+            .AsQueryable();
+
+        if (isVerified.HasValue)
+            query = query.Where(c => c.IsVerified == isVerified.Value);
+
+        if (!string.IsNullOrEmpty(searchTerm))
+        {
+            query = query.Where(c => 
+                c.BusinessName.Contains(searchTerm) ||
+                c.TINNumber.Contains(searchTerm) ||
+                c.ContactEmail.Contains(searchTerm));
+        }
+
+        var totalCount = await query.CountAsync();
+        var customers = await query
+            .OrderByDescending(c => c.RegisteredDate)
+            .Skip((page - 1) * pageSize)
+            .Take(pageSize)
+            .ToListAsync();
+
+        var result = new PaginatedResult<Customer>
+        {
+            Data = customers,
+            TotalCount = totalCount,
+            Page = page,
+            PageSize = pageSize,
+            TotalPages = (int)Math.Ceiling((double)totalCount / pageSize)
+        };
+
+        return HandleSuccessResponse(result);
+    }
+
+    /// <summary>
+    /// Get all staff members
+    /// </summary>
+    [HttpGet("staff")]
+    public async Task<IActionResult> GetAllStaff([FromQuery] string? role = null)
+    {
+        var currentUserId = GetCurrentUserId();
+        if (currentUserId == null)
+            return Unauthorized("User not authenticated");
+
+        if (!await IsManager(currentUserId.Value))
+            return Forbid("Access denied. Manager role required.");
+
+        var query = _context.Users
+            .Include(u => u.UserRoles)
+            .ThenInclude(ur => ur.Role)
+            .Where(u => u.RecordStatus == RecordStatus.Active)
+            .AsQueryable();
+
+        if (!string.IsNullOrEmpty(role))
+        {
+            query = query.Where(u => u.UserRoles.Any(ur => ur.Role.Name == role));
+        }
+
+        var staff = await query.ToListAsync();
+
+        return HandleSuccessResponse(staff);
+    }
+
+    /// <summary>
+    /// Get system notifications for managers
+    /// </summary>
+    [HttpGet("notifications")]
+    public async Task<IActionResult> GetSystemNotifications([FromQuery] bool unreadOnly = false)
+    {
+        var currentUserId = GetCurrentUserId();
+        if (currentUserId == null)
+            return Unauthorized("User not authenticated");
+
+        if (!await IsManager(currentUserId.Value))
+            return Forbid("Access denied. Manager role required.");
+
+        var query = _context.Notifications
+            .Include(n => n.Service)
+            .Include(n => n.User)
+            .Where(n => n.Type == NotificationType.SystemAlert || n.IsUrgent);
+
+        if (unreadOnly)
+            query = query.Where(n => !n.IsRead);
+
+        var notifications = await query
+            .OrderByDescending(n => n.RegisteredDate)
+            .ToListAsync();
+
+        return HandleSuccessResponse(notifications);
+    }
+
+    private long? GetCurrentUserId()
+    {
+        var authorizationHeader = _httpContextAccessor.HttpContext?.Request.Headers["Authorization"].ToString();
+        if (string.IsNullOrEmpty(authorizationHeader) || !authorizationHeader.StartsWith("Bearer "))
+            return null;
+
+        // Extract user ID from JWT token (you'll need to implement this based on your token structure)
+        return 1; // This should be extracted from the JWT token
+    }
+
+    private async Task<bool> IsManager(long userId)
+    {
+        var user = await _context.Users
+            .Include(u => u.UserRoles)
+            .ThenInclude(ur => ur.Role)
+            .FirstOrDefaultAsync(u => u.Id == userId);
+
+        return user?.UserRoles.Any(ur => ur.Role.Name == "Manager") ?? false;
+    }
+}
+
+public class AssignExecutorRequest
+{
+    public long CaseExecutorId { get; set; }
+}
+
+public class ManagerDashboardResponse
+{
+    public int TotalServices { get; set; }
+    public int PendingServices { get; set; }
+    public int InProgressServices { get; set; }
+    public int CompletedServices { get; set; }
+    public int TotalCustomers { get; set; }
+    public int VerifiedCustomers { get; set; }
+    public int TotalStaff { get; set; }
+    public int ActiveStaff { get; set; }
+    public List<Service> RecentServices { get; set; } = new();
+    public List<MonthlyServiceStat> MonthlyServiceStats { get; set; } = new();
+}
+
+public class MonthlyServiceStat
+{
+    public int Year { get; set; }
+    public int Month { get; set; }
+    public int TotalServices { get; set; }
+    public int CompletedServices { get; set; }
+    public double CompletionRate { get; set; }
+}
+
+public class PaginatedResult<T>
+{
+    public List<T> Data { get; set; } = new();
+    public int TotalCount { get; set; }
+    public int Page { get; set; }
+    public int PageSize { get; set; }
+    public int TotalPages { get; set; }
+}
