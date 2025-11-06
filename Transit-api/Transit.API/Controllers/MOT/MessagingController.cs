@@ -2,6 +2,8 @@ using Microsoft.AspNetCore.Mvc;
 using Transit.API.Services;
 using Transit.Controllers;
 using Transit.Domain.Models.Shared;
+using Transit.Domain.Data;
+using Transit.API.Helpers;
 
 namespace Transit.API.Controllers.MOT;
 
@@ -10,10 +12,14 @@ namespace Transit.API.Controllers.MOT;
 public class MessagingController : BaseController
 {
     private readonly IMessagingService _messagingService;
+    private readonly ApplicationDbContext _context;
+    private readonly IHttpContextAccessor _httpContextAccessor;
 
-    public MessagingController(IMessagingService messagingService)
+    public MessagingController(IMessagingService messagingService, ApplicationDbContext context, IHttpContextAccessor httpContextAccessor)
     {
         _messagingService = messagingService;
+        _context = context;
+        _httpContextAccessor = httpContextAccessor;
     }
 
     [HttpPost("send")]
@@ -21,9 +27,14 @@ public class MessagingController : BaseController
     {
         try
         {
+            // Get sender ID from JWT token
+            var senderId = JwtHelper.GetCurrentUserId(_httpContextAccessor, _context);
+            if (senderId == null)
+                return Unauthorized("User not authenticated");
+
             var message = await _messagingService.SendMessageAsync(
                 request.ServiceId,
-                request.SenderId,
+                senderId.Value, // Use sender ID from token
                 request.Subject,
                 request.Content,
                 request.Type,
@@ -150,7 +161,7 @@ public class MessagingController : BaseController
 public class SendMessageRequest
 {
     public long ServiceId { get; set; }
-    public long SenderId { get; set; }
+    // SenderId is now extracted from JWT token, not required in request
     public long? RecipientId { get; set; }
     public string Subject { get; set; } = string.Empty;
     public string Content { get; set; } = string.Empty;

@@ -1,4 +1,4 @@
-import http from "@/modules/utils/axios/index";
+import http from "@/modules/utils/axios";
 import { IContact } from "./contact.types";
 import { RecordStatus } from "../common/common.types";
 

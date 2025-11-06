@@ -82,6 +82,7 @@ internal class RefreshTokenHandler : IRequestHandler<RefreshToken, OperationResu
     {
         var result = new List<Claim>();
         result.Add(new Claim("userName", user.Username));
+        result.Add(new Claim("id", user.Id.ToString()));
         foreach (var role in user.Roles)
         {
             foreach (var clientClaim in role.Privileges)

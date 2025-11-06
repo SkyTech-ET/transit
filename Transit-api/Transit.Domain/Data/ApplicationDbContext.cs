@@ -117,6 +117,57 @@ namespace Transit.Domain.Data
                 .WithMany()
                 .HasForeignKey(n => n.ServiceId)
                 .OnDelete(DeleteBehavior.SetNull);
+
+            // StageComment configurations
+            modelBuilder.Entity<StageComment>()
+                .HasOne(sc => sc.ServiceStage)
+                .WithMany(ss => ss.StageComments)
+                .HasForeignKey(sc => sc.ServiceStageId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            modelBuilder.Entity<StageComment>()
+                .HasOne(sc => sc.CommentedByUser)
+                .WithMany()
+                .HasForeignKey(sc => sc.CommentedByUserId)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            // StageDocument configurations
+            modelBuilder.Entity<StageDocument>()
+                .HasOne(sd => sd.ServiceStage)
+                .WithMany(ss => ss.Documents)
+                .HasForeignKey(sd => sd.ServiceStageId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            modelBuilder.Entity<StageDocument>()
+                .HasOne(sd => sd.UploadedByUser)
+                .WithMany()
+                .HasForeignKey(sd => sd.UploadedByUserId)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            modelBuilder.Entity<StageDocument>()
+                .HasOne(sd => sd.VerifiedByUser)
+                .WithMany()
+                .HasForeignKey(sd => sd.VerifiedByUserId)
+                .OnDelete(DeleteBehavior.SetNull);
+
+            // ServiceMessage configurations
+            modelBuilder.Entity<ServiceMessage>()
+                .HasOne(sm => sm.Service)
+                .WithMany(s => s.Messages)
+                .HasForeignKey(sm => sm.ServiceId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            modelBuilder.Entity<ServiceMessage>()
+                .HasOne(sm => sm.SenderUser)
+                .WithMany()
+                .HasForeignKey(sm => sm.SenderUserId)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            modelBuilder.Entity<ServiceMessage>()
+                .HasOne(sm => sm.RecipientUser)
+                .WithMany()
+                .HasForeignKey(sm => sm.RecipientUserId)
+                .OnDelete(DeleteBehavior.SetNull);
         }
 
         #region User

@@ -1,4 +1,8 @@
-﻿namespace Transit.Api.Filters
+﻿using Microsoft.AspNetCore.Http.HttpResults;
+using System.Data;
+using Transit.Domain.Models;
+
+namespace Transit.Api.Filters
 {
     public class AuthorizationHandler : IAuthorizationFilter
     {
@@ -14,6 +18,8 @@
             "User-Login",
             "User-Create",
             "Password-ForgotPassword",
+            "Privilege-Create",
+            "Roles-Create"
         };
 
         public List<string> Anonymous { get => anonymous; set => anonymous = value; }

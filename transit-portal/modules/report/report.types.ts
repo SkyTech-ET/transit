@@ -2,9 +2,9 @@ import { RecordStatus } from "../common/common.types";
 
 export interface IOrganizationReport {
     users: number;
-    orders: number;
-    packages: number;
-    menus: number;
+    services: number;
+    customers: number;
+    documents: number;
 }
 export interface IOrganizationReportSort {
     fullName: string;
@@ -54,10 +54,12 @@ export interface AdminReportSort {
 }
 export interface AdminReport {
     users: number;
-    orders: number;
-    packages: number;
-    subscriptions: number;
-    organizations?: number;
+    services: number;
+    customers: number;
+    documents: number;
+    messages: number;
+    notifications: number;
+    pendingApprovals: number;
 }
 
 export interface IReportPayload {

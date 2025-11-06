@@ -98,4 +98,25 @@ public class Service : BaseEntity
     {
         _messages.Add(message);
     }
+
+    public void SetRiskLevel(RiskLevel riskLevel)
+    {
+        RiskLevel = riskLevel;
+        UpdateAudit("System");
+    }
+
+    public void UpdateDetails(
+        string itemDescription,
+        string routeCategory,
+        decimal declaredValue,
+        string taxCategory,
+        string countryOfOrigin)
+    {
+        ItemDescription = itemDescription;
+        RouteCategory = routeCategory;
+        DeclaredValue = declaredValue;
+        TaxCategory = taxCategory;
+        CountryOfOrigin = countryOfOrigin;
+        UpdateAudit("System");
+    }
 }

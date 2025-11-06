@@ -1,4 +1,4 @@
-import http from "@/modules/utils/axios/index";
+import http from "@/modules/utils/axios";
 
 import { IRole, IRolePayload } from "./role.types";
 import { RecordStatus } from "../common/common.types";

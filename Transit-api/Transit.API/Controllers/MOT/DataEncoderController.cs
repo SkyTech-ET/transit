@@ -5,6 +5,8 @@ using Transit.Domain.Models.Shared;
 using Transit.Domain.Models;
 using Microsoft.EntityFrameworkCore;
 using Transit.Controllers;
+using Transit.API.Helpers;
+using Transit.API.DTO.MasterData.Request;
 
 namespace Transit.API.Controllers.MOT;
 
@@ -24,10 +26,10 @@ public class DataEncoderController : BaseController
     /// <summary>
     /// Create a new customer
     /// </summary>
-    [HttpPost("customers")]
+    [HttpPost("CreateCustomer")]
     public async Task<IActionResult> CreateCustomer([FromBody] CreateCustomerRequest request)
     {
-        var currentUserId = GetCurrentUserId();
+        var currentUserId = JwtHelper.GetCurrentUserId(_httpContextAccessor, _context);
         if (currentUserId == null)
             return Unauthorized("User not authenticated");
 
@@ -35,27 +37,11 @@ public class DataEncoderController : BaseController
             return Forbid("Access denied. Data Encoder role required.");
 
         // Check if user already exists
-        var existingUser = await _context.Users
-            .FirstOrDefaultAsync(u => u.Email == request.Email || u.Username == request.Username);
+        var existingUser = await _context.Customers
+            .FirstOrDefaultAsync(u => u.Id == request.UserId);
 
         if (existingUser != null)
             return BadRequest("User with this email or username already exists");
-
-            // Create user first
-            var user = Domain.Models.User.CreateUser(
-                request.Username,
-                request.Email,
-                request.FirstName,
-                request.LastName,
-                "", // Profile photo will be empty initially
-                request.Phone,
-                BCrypt.Net.BCrypt.HashPassword(request.Password),
-                false, // Not super admin
-                AccountStatus.Pending
-            );
-
-        _context.Users.Add(user);
-        await _context.SaveChangesAsync();
 
         // Create customer profile
         var customer = Customer.Create(
@@ -72,7 +58,7 @@ public class DataEncoderController : BaseController
             request.BusinessType,
             request.ImportLicense,
             request.ImportLicenseExpiry,
-            user.Id,
+            request.UserId,
             currentUserId.Value
         );
 
@@ -91,7 +77,7 @@ public class DataEncoderController : BaseController
         [FromQuery] int page = 1,
         [FromQuery] int pageSize = 20)
     {
-        var currentUserId = GetCurrentUserId();
+        var currentUserId = JwtHelper.GetCurrentUserId(_httpContextAccessor, _context);
         if (currentUserId == null)
             return Unauthorized("User not authenticated");
 
@@ -131,7 +117,7 @@ public class DataEncoderController : BaseController
     [HttpPost("services")]
     public async Task<IActionResult> CreateService([FromBody] CreateServiceRequest request)
     {
-        var currentUserId = GetCurrentUserId();
+        var currentUserId = JwtHelper.GetCurrentUserId(_httpContextAccessor, _context);
         if (currentUserId == null)
             return Unauthorized("User not authenticated");
 
@@ -179,7 +165,7 @@ public class DataEncoderController : BaseController
         [FromQuery] int page = 1,
         [FromQuery] int pageSize = 20)
     {
-        var currentUserId = GetCurrentUserId();
+        var currentUserId = JwtHelper.GetCurrentUserId(_httpContextAccessor, _context);
         if (currentUserId == null)
             return Unauthorized("User not authenticated");
 
@@ -220,7 +206,7 @@ public class DataEncoderController : BaseController
     [HttpPut("customers/{customerId}")]
     public async Task<IActionResult> UpdateCustomer(long customerId, [FromBody] UpdateCustomerRequest request)
     {
-        var currentUserId = GetCurrentUserId();
+        var currentUserId = JwtHelper.GetCurrentUserId(_httpContextAccessor, _context);
         if (currentUserId == null)
             return Unauthorized("User not authenticated");
 
@@ -259,7 +245,7 @@ public class DataEncoderController : BaseController
     [HttpGet("dashboard")]
     public async Task<IActionResult> GetDashboard()
     {
-        var currentUserId = GetCurrentUserId();
+        var currentUserId = JwtHelper.GetCurrentUserId(_httpContextAccessor, _context);
         if (currentUserId == null)
             return Unauthorized("User not authenticated");
 
@@ -344,28 +330,7 @@ public class DataEncoderController : BaseController
     }
 }
 
-public class CreateCustomerRequest
-{
-    public string Username { get; set; } = string.Empty;
-    public string Email { get; set; } = string.Empty;
-    public string FirstName { get; set; } = string.Empty;
-    public string LastName { get; set; } = string.Empty;
-    public string Phone { get; set; } = string.Empty;
-    public string Password { get; set; } = string.Empty;
-    public string BusinessName { get; set; } = string.Empty;
-    public string TINNumber { get; set; } = string.Empty;
-    public string BusinessLicense { get; set; } = string.Empty;
-    public string BusinessAddress { get; set; } = string.Empty;
-    public string City { get; set; } = string.Empty;
-    public string State { get; set; } = string.Empty;
-    public string PostalCode { get; set; } = string.Empty;
-    public string ContactPerson { get; set; } = string.Empty;
-    public string ContactPhone { get; set; } = string.Empty;
-    public string ContactEmail { get; set; } = string.Empty;
-    public string BusinessType { get; set; } = string.Empty;
-    public string ImportLicense { get; set; } = string.Empty;
-    public DateTime? ImportLicenseExpiry { get; set; }
-}
+
 
 public class CreateServiceRequest
 {

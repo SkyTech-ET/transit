@@ -7,5 +7,13 @@ public class UserRole : BaseEntity
     public virtual User User { get; set; }
     public virtual Role Role { get; set; }
 
-
+    public static UserRole Create(long userId, long roleId)
+    {
+        return new UserRole
+        {
+            UserId = userId,
+            RoleId = roleId,
+            RecordStatus = Models.Shared.RecordStatus.Active
+        };
+    }
 }

@@ -2,6 +2,8 @@ using Microsoft.AspNetCore.Mvc;
 using Transit.API.Services;
 using Transit.Controllers;
 using Transit.Domain.Models.Shared;
+using Transit.Domain.Data;
+using Transit.API.Helpers;
 
 namespace Transit.API.Controllers.MOT;
 
@@ -10,10 +12,20 @@ namespace Transit.API.Controllers.MOT;
 public class DocumentController : BaseController
 {
     private readonly IDocumentService _documentService;
+    private readonly IFileStorageService _fileStorageService;
+    private readonly ApplicationDbContext _context;
+    private readonly IHttpContextAccessor _httpContextAccessor;
 
-    public DocumentController(IDocumentService documentService)
+    public DocumentController(
+        IDocumentService documentService, 
+        IFileStorageService fileStorageService,
+        ApplicationDbContext context,
+        IHttpContextAccessor httpContextAccessor)
     {
         _documentService = documentService;
+        _fileStorageService = fileStorageService;
+        _context = context;
+        _httpContextAccessor = httpContextAccessor;
     }
 
     [HttpPost("service/{serviceId}/upload")]
@@ -29,12 +41,14 @@ public class DocumentController : BaseController
             if (file == null || file.Length == 0)
                 return BadRequest("No file uploaded");
 
-            // Get current user ID (this should be implemented based on your authentication system)
-            var uploadedByUserId = GetCurrentUserId(); // Implement this method
+            // Get current user ID
+            var uploadedByUserId = JwtHelper.GetCurrentUserId(_httpContextAccessor, _context);
+            if (uploadedByUserId == null)
+                return Unauthorized("User not authenticated");
 
             var document = await _documentService.UploadServiceDocumentAsync(
                 serviceId,
-                uploadedByUserId,
+                uploadedByUserId.Value,
                 file,
                 documentType,
                 serviceStageId,
@@ -62,10 +76,12 @@ public class DocumentController : BaseController
                 return BadRequest("No file uploaded");
 
             var uploadedByUserId = GetCurrentUserId();
+            if (uploadedByUserId == null)
+                return Unauthorized("User not authenticated");
 
             var document = await _documentService.UploadStageDocumentAsync(
                 serviceStageId,
-                uploadedByUserId,
+                uploadedByUserId.Value,
                 file,
                 documentType,
                 description
@@ -92,10 +108,12 @@ public class DocumentController : BaseController
                 return BadRequest("No file uploaded");
 
             var uploadedByUserId = GetCurrentUserId();
+            if (uploadedByUserId == null)
+                return Unauthorized("User not authenticated");
 
             var document = await _documentService.UploadCustomerDocumentAsync(
                 customerId,
-                uploadedByUserId,
+                uploadedByUserId.Value,
                 file,
                 documentType,
                 description
@@ -258,7 +276,11 @@ public class DocumentController : BaseController
     {
         try
         {
-            var result = await _documentService.VerifyDocumentAsync(documentId, request.IsVerified, request.VerificationNotes);
+            var verifiedByUserId = JwtHelper.GetCurrentUserId(_httpContextAccessor, _context);
+            if (verifiedByUserId == null)
+                return Unauthorized("User not authenticated");
+
+            var result = await _documentService.VerifyDocumentAsync(documentId, verifiedByUserId.Value, request.IsVerified, request.VerificationNotes);
             if (!result)
                 return NotFound("Document not found");
 
@@ -290,13 +312,9 @@ public class DocumentController : BaseController
         }
     }
 
-    private long GetCurrentUserId()
+    private long? GetCurrentUserId()
     {
-        // This is a placeholder. In a real application, you would get the user ID from the JWT token.
-        // For now, returning a dummy ID or throwing an exception.
-        // Example: var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier);
-        // return userIdClaim != null ? long.Parse(userIdClaim.Value) : 0;
-        return 1; // Dummy user ID for testing
+        return JwtHelper.GetCurrentUserId(_httpContextAccessor, _context);
     }
 }
 

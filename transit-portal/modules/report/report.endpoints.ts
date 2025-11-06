@@ -1,12 +1,12 @@
-import http from "@/modules/utils/axios/index";
+import http from "@/modules/utils/axios";
 import { IReportPayload } from "./report.types";
 import { RecordStatus } from "../common/common.types";
 
 const reportEndpoints = Object.freeze({
-    getByOrg: "Dashboards/GetOrganizationDashboardData",
-    getAll: "Dashboards/GetAdminDashboardDataQuery",
-    getByOrgSort: "Dashboards/GetByOrganizationIdWithDateSort",
-    getAllSort: "Dashboards/GetAdminDashboardDataSortQuery",
+    getByOrg: "Dashboard/Organization",
+    getAll: "Dashboard/View",
+    getByOrgSort: "Dashboard/OrganizationSort",
+    getAllSort: "Dashboard/ViewSort",
 });
 
 export const getAllReport = (payload: IReportPayload): Promise<Response> => {

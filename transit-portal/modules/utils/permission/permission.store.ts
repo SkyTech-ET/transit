@@ -43,14 +43,40 @@ export const usePermissionStore = create<State & Actions>((set) => ({
         set({ loading: true });
         try {
             const user = getUserData();
-            if (user) {
-                const privileges = user.roles[0].privileges
-                const admin = checkIsUserAdmin(privileges as any)
-                set({ currentUser: user, isAdmin: user.roles[0].roleName=='Admin', permissions: privileges, loading: false });
+            if (user && user.roles && user.roles.length > 0) {
+                // Collect all privileges from all roles
+                const allPrivileges: IPrivilege[] = [];
+                user.roles.forEach(role => {
+                    if (role.privileges && role.privileges.length > 0) {
+                        allPrivileges.push(...role.privileges);
+                    }
+                });
+                
+                // Remove duplicates based on action
+                const uniquePrivileges = allPrivileges.filter((privilege, index, self) => 
+                    index === self.findIndex(p => p.action === privilege.action)
+                );
+                
+                const admin = checkIsUserAdmin(uniquePrivileges as any);
+                const isAdminRole = user.roles.some(role => role.roleName === 'Admin');
+                
+                console.log('🔍 DEBUG: User roles:', user.roles);
+                console.log('🔍 DEBUG: All privileges:', uniquePrivileges);
+                console.log('🔍 DEBUG: Is admin role:', isAdminRole);
+                console.log('🔍 DEBUG: Is admin by privileges:', admin);
+                
+                set({ 
+                    currentUser: user, 
+                    isAdmin: isAdminRole || admin, 
+                    permissions: uniquePrivileges, 
+                    loading: false 
+                });
             } else {
+                console.log('🔍 DEBUG: No user data or roles found');
                 set({ loading: false });
             }
         } catch (error) {
+            console.error('🔍 DEBUG: Error fetching user data:', error);
             set({ error, loading: false });
         }
     },

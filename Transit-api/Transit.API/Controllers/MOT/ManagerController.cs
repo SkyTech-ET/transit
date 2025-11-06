@@ -4,6 +4,7 @@ using Transit.Domain.Models.MOT;
 using Transit.Domain.Models.Shared;
 using Microsoft.EntityFrameworkCore;
 using Transit.Controllers;
+using Transit.API.Helpers;
 
 namespace Transit.API.Controllers.MOT;
 
@@ -26,7 +27,7 @@ public class ManagerController : BaseController
     [HttpGet("dashboard")]
     public async Task<IActionResult> GetDashboard()
     {
-        var currentUserId = GetCurrentUserId();
+        var currentUserId = JwtHelper.GetCurrentUserId(_httpContextAccessor, _context);
         if (currentUserId == null)
             return Unauthorized("User not authenticated");
 
@@ -88,7 +89,7 @@ public class ManagerController : BaseController
         [FromQuery] int page = 1,
         [FromQuery] int pageSize = 20)
     {
-        var currentUserId = GetCurrentUserId();
+        var currentUserId = JwtHelper.GetCurrentUserId(_httpContextAccessor, _context);
         if (currentUserId == null)
             return Unauthorized("User not authenticated");
 
@@ -139,7 +140,7 @@ public class ManagerController : BaseController
     [HttpGet("services/{serviceId}")]
     public async Task<IActionResult> GetServiceDetails(long serviceId)
     {
-        var currentUserId = GetCurrentUserId();
+        var currentUserId = JwtHelper.GetCurrentUserId(_httpContextAccessor, _context);
         if (currentUserId == null)
             return Unauthorized("User not authenticated");
 
@@ -171,7 +172,7 @@ public class ManagerController : BaseController
     [HttpPut("services/{serviceId}/assign-executor")]
     public async Task<IActionResult> AssignCaseExecutor(long serviceId, [FromBody] AssignExecutorRequest request)
     {
-        var currentUserId = GetCurrentUserId();
+        var currentUserId = JwtHelper.GetCurrentUserId(_httpContextAccessor, _context);
         if (currentUserId == null)
             return Unauthorized("User not authenticated");
 
@@ -213,7 +214,7 @@ public class ManagerController : BaseController
         [FromQuery] int page = 1,
         [FromQuery] int pageSize = 20)
     {
-        var currentUserId = GetCurrentUserId();
+        var currentUserId = JwtHelper.GetCurrentUserId(_httpContextAccessor, _context);
         if (currentUserId == null)
             return Unauthorized("User not authenticated");
 
@@ -262,7 +263,7 @@ public class ManagerController : BaseController
     [HttpGet("staff")]
     public async Task<IActionResult> GetAllStaff([FromQuery] string? role = null)
     {
-        var currentUserId = GetCurrentUserId();
+        var currentUserId = JwtHelper.GetCurrentUserId(_httpContextAccessor, _context);
         if (currentUserId == null)
             return Unauthorized("User not authenticated");
 
@@ -291,7 +292,7 @@ public class ManagerController : BaseController
     [HttpGet("notifications")]
     public async Task<IActionResult> GetSystemNotifications([FromQuery] bool unreadOnly = false)
     {
-        var currentUserId = GetCurrentUserId();
+        var currentUserId = JwtHelper.GetCurrentUserId(_httpContextAccessor, _context);
         if (currentUserId == null)
             return Unauthorized("User not authenticated");
 
@@ -313,15 +314,6 @@ public class ManagerController : BaseController
         return HandleSuccessResponse(notifications);
     }
 
-    private long? GetCurrentUserId()
-    {
-        var authorizationHeader = _httpContextAccessor.HttpContext?.Request.Headers["Authorization"].ToString();
-        if (string.IsNullOrEmpty(authorizationHeader) || !authorizationHeader.StartsWith("Bearer "))
-            return null;
-
-        // Extract user ID from JWT token (you'll need to implement this based on your token structure)
-        return 1; // This should be extracted from the JWT token
-    }
 
     private async Task<bool> IsManager(long userId)
     {

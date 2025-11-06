@@ -4,6 +4,8 @@ using Transit.Domain.Models.MOT;
 using Transit.Domain.Models.Shared;
 using Microsoft.EntityFrameworkCore;
 using Transit.Controllers;
+using Transit.API.Helpers;
+using Mapster;
 
 namespace Transit.API.Controllers.MOT;
 
@@ -20,20 +22,69 @@ public class CustomerController : BaseController
         _httpContextAccessor = httpContextAccessor;
     }
 
+      /// <summary>
+    /// Create a new service request as a customer
+    /// </summary>
+    [HttpPost("services")]
+    public async Task<IActionResult> CreateServiceRequest([FromBody] CreateCustomerServiceRequest request)
+    {
+        var currentUserId = JwtHelper.GetCurrentUserId(_httpContextAccessor, _context);
+        if (currentUserId == null)
+            return Unauthorized("User not authenticated");
+
+        // Verify customer exists and is verified
+        var customer = await _context.Customers
+            .Include(c => c.User)
+            .FirstOrDefaultAsync(c => c.UserId == currentUserId.Value && c.IsVerified);
+
+        if (customer == null)
+            return BadRequest("Customer not found or not verified");
+
+        // Generate service number
+        var serviceNumber = $"SRV-{DateTime.UtcNow:yyyyMMdd}-{Guid.NewGuid().ToString("N")[..8].ToUpper()}";
+
+        var service = Service.Create(
+            serviceNumber,
+            request.ItemDescription,
+            request.RouteCategory,
+            request.DeclaredValue,
+            request.TaxCategory,
+            request.CountryOfOrigin,
+            request.ServiceType,
+            customer.Id, // Use customer ID, not user ID
+            currentUserId.Value // Use current user as the creator
+        );
+
+        _context.Services.Add(service);
+        await _context.SaveChangesAsync();
+
+        // Create initial service stages based on service type
+        await CreateServiceStages(service.Id, request.ServiceType);
+
+        return HandleSuccessResponse(service);
+    }
+
     /// <summary>
     /// Get all services for the current customer
     /// </summary>
     [HttpGet("services")]
     public async Task<IActionResult> GetMyServices([FromQuery] ServiceStatus? status = null)
     {
-        var currentUserId = GetCurrentUserId();
+        var currentUserId = JwtHelper.GetCurrentUserId(_httpContextAccessor, _context);
         if (currentUserId == null)
             return Unauthorized("User not authenticated");
+
+        // Get customer for current user
+        var customer = await _context.Customers
+            .FirstOrDefaultAsync(c => c.UserId == currentUserId.Value);
+
+        if (customer == null)
+            return BadRequest("Customer profile not found");
 
         var query = _context.Services
             .Include(s => s.Stages)
             .Include(s => s.Documents)
-            .Where(s => s.CustomerId == currentUserId.Value);
+            .Where(s => s.CustomerId == customer.Id); // Use customer.Id, not customer.UserId
 
         if (status.HasValue)
             query = query.Where(s => s.Status == status.Value);
@@ -49,9 +100,16 @@ public class CustomerController : BaseController
     [HttpGet("services/{serviceId}")]
     public async Task<IActionResult> GetServiceDetails(long serviceId)
     {
-        var currentUserId = GetCurrentUserId();
+        var currentUserId = JwtHelper.GetCurrentUserId(_httpContextAccessor, _context);
         if (currentUserId == null)
             return Unauthorized("User not authenticated");
+
+        // Get customer for current user
+        var customer = await _context.Customers
+            .FirstOrDefaultAsync(c => c.UserId == currentUserId.Value);
+
+        if (customer == null)
+            return BadRequest("Customer profile not found");
 
         var service = await _context.Services
             .Include(s => s.Stages)
@@ -61,7 +119,7 @@ public class CustomerController : BaseController
             .Include(s => s.Documents)
             .Include(s => s.Messages)
             .Include(s => s.AssignedCaseExecutor)
-            .FirstOrDefaultAsync(s => s.Id == serviceId && s.CustomerId == currentUserId.Value);
+            .FirstOrDefaultAsync(s => s.Id == serviceId && s.CustomerId == customer.Id); // Use customer.Id
 
         if (service == null)
             return NotFound("Service not found");
@@ -75,7 +133,7 @@ public class CustomerController : BaseController
     [HttpPost("services/{serviceId}/stages/{stageId}/documents")]
     public async Task<IActionResult> UploadStageDocument(long serviceId, long stageId, IFormFile file, [FromForm] DocumentType documentType)
     {
-        var currentUserId = GetCurrentUserId();
+        var currentUserId = JwtHelper.GetCurrentUserId(_httpContextAccessor, _context);
         if (currentUserId == null)
             return Unauthorized("User not authenticated");
 
@@ -132,7 +190,7 @@ public class CustomerController : BaseController
     [HttpGet("notifications")]
     public async Task<IActionResult> GetNotifications([FromQuery] bool unreadOnly = false)
     {
-        var currentUserId = GetCurrentUserId();
+        var currentUserId = JwtHelper.GetCurrentUserId(_httpContextAccessor, _context);
         if (currentUserId == null)
             return Unauthorized("User not authenticated");
 
@@ -156,7 +214,7 @@ public class CustomerController : BaseController
     [HttpPut("notifications/{notificationId}/read")]
     public async Task<IActionResult> MarkNotificationAsRead(long notificationId)
     {
-        var currentUserId = GetCurrentUserId();
+        var currentUserId = JwtHelper.GetCurrentUserId(_httpContextAccessor, _context);
         if (currentUserId == null)
             return Unauthorized("User not authenticated");
 
@@ -178,7 +236,7 @@ public class CustomerController : BaseController
     [HttpGet("profile")]
     public async Task<IActionResult> GetProfile()
     {
-        var currentUserId = GetCurrentUserId();
+        var currentUserId = JwtHelper.GetCurrentUserId(_httpContextAccessor, _context);
         if (currentUserId == null)
             return Unauthorized("User not authenticated");
 
@@ -199,7 +257,7 @@ public class CustomerController : BaseController
     [HttpPut("profile")]
     public async Task<IActionResult> UpdateProfile([FromBody] UpdateCustomerProfileRequest request)
     {
-        var currentUserId = GetCurrentUserId();
+        var currentUserId = JwtHelper.GetCurrentUserId(_httpContextAccessor, _context);
         if (currentUserId == null)
             return Unauthorized("User not authenticated");
 
@@ -225,17 +283,66 @@ public class CustomerController : BaseController
         return HandleSuccessResponse(customer);
     }
 
-    private long? GetCurrentUserId()
+    private async Task CreateServiceStages(long serviceId, ServiceType serviceType)
     {
-        var authorizationHeader = _httpContextAccessor.HttpContext?.Request.Headers["Authorization"].ToString();
-        if (string.IsNullOrEmpty(authorizationHeader) || !authorizationHeader.StartsWith("Bearer "))
-            return null;
+        var stages = new List<ServiceStageExecution>();
 
-        // Extract user ID from JWT token (you'll need to implement this based on your token structure)
-        // For now, returning a placeholder
-        return 1; // This should be extracted from the JWT token
+        // Create stages based on service type
+        switch (serviceType)
+        {
+            case ServiceType.Multimodal:
+                stages.AddRange(new[]
+                {
+                    ServiceStageExecution.Create(serviceId, ServiceStage.PrepaymentInvoice),
+                    ServiceStageExecution.Create(serviceId, ServiceStage.DropRisk),
+                    ServiceStageExecution.Create(serviceId, ServiceStage.DeliveryOrder),
+                    ServiceStageExecution.Create(serviceId, ServiceStage.Inspection),
+                    ServiceStageExecution.Create(serviceId, ServiceStage.Transportation),
+                    ServiceStageExecution.Create(serviceId, ServiceStage.Clearance)
+                });
+                break;
+            case ServiceType.Unimodal:
+                stages.AddRange(new[]
+                {
+                    ServiceStageExecution.Create(serviceId, ServiceStage.PrepaymentInvoice),
+                    ServiceStageExecution.Create(serviceId, ServiceStage.DropRisk),
+                    ServiceStageExecution.Create(serviceId, ServiceStage.DeliveryOrder),
+                    ServiceStageExecution.Create(serviceId, ServiceStage.Inspection),
+                    ServiceStageExecution.Create(serviceId, ServiceStage.LocalPermission),
+                    ServiceStageExecution.Create(serviceId, ServiceStage.Arrival),
+                    ServiceStageExecution.Create(serviceId, ServiceStage.StoreSettlement)
+                });
+                break;
+            default:
+                stages.AddRange(new[]
+                {
+                    ServiceStageExecution.Create(serviceId, ServiceStage.PrepaymentInvoice),
+                    ServiceStageExecution.Create(serviceId, ServiceStage.DropRisk),
+                    ServiceStageExecution.Create(serviceId, ServiceStage.DeliveryOrder)
+                });
+                break;
+        }
+
+        _context.ServiceStages.AddRange(stages);
+        await _context.SaveChangesAsync();
     }
+
 }
+
+public class CreateCustomerServiceRequest
+{
+    public string ItemDescription { get; set; } = string.Empty;
+    public string RouteCategory { get; set; } = string.Empty;
+    public decimal DeclaredValue { get; set; }
+    public string TaxCategory { get; set; } = string.Empty;
+    public string CountryOfOrigin { get; set; } = string.Empty;
+    public ServiceType ServiceType { get; set; }
+    public RiskLevel RiskLevel { get; set; } = RiskLevel.Blue;
+    public string Priority { get; set; } = "Medium";
+    public string SpecialInstructions { get; set; } = string.Empty;
+}
+
+
 
 public class UpdateCustomerProfileRequest
 {

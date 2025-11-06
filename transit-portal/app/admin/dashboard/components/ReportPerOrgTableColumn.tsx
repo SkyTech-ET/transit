@@ -16,7 +16,7 @@ interface Props {
 export const ReportPerOrgTableColumn = (props: Props): ColumnsType<AdminReportSort> => [
 
   {
-    title: "Vendor",
+    title: "Customer",
     dataIndex: "logoPath",
     key: "logoPath",
     render: (_: any, record: AdminReportSort) => (
@@ -36,7 +36,7 @@ export const ReportPerOrgTableColumn = (props: Props): ColumnsType<AdminReportSo
             </div>
             <div className="flex-1 min-w-0 ms-2">
               <p className="text-lg font-medium pb-1 text-gray-900 truncate">
-                {record.organizationName || "Organization Name"}
+                {record.organizationName || "Customer Name"}
               </p>
               <p className="text-sm text-gray-500 truncate">
                 {"Address here"}
@@ -49,7 +49,7 @@ export const ReportPerOrgTableColumn = (props: Props): ColumnsType<AdminReportSo
     ),
   },
   {
-    title: "Total Approved Orders",
+    title: "Total Approved Services",
     dataIndex: "approvedOrders",
     key: "approvedOrders",
     render: (_: any, record: AdminReportSort) => (
@@ -59,7 +59,7 @@ export const ReportPerOrgTableColumn = (props: Props): ColumnsType<AdminReportSo
   },
 
   {
-    title: "Total Orders",
+    title: "Total Services",
     dataIndex: "numberOfOrders",
     key: "numberOfOrders",
     render: (_: any, record: AdminReportSort) => (
@@ -67,7 +67,7 @@ export const ReportPerOrgTableColumn = (props: Props): ColumnsType<AdminReportSo
     ),
   },
   {
-    title: "Total Packages",
+    title: "Total Documents",
     dataIndex: "numberOfPackages",
     key: "numberOfPackages",
     render: (_: any, record: AdminReportSort) => (

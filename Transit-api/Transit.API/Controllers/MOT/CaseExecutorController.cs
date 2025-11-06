@@ -227,10 +227,7 @@ public class CaseExecutorController : BaseController
         var comment = StageComment.Create(
             request.Comment,
             stageId,
-            currentUserId.Value,
-            request.CommentType,
-            request.IsInternal,
-            request.IsVisibleToCustomer
+            currentUserId.Value
         );
 
         _context.StageComments.Add(comment);
@@ -369,11 +366,6 @@ public class CaseExecutorController : BaseController
     }
 }
 
-public class UpdateStageStatusRequest
-{
-    public StageStatus Status { get; set; }
-    public string? Comments { get; set; }
-}
 
 public class AddStageCommentRequest
 {

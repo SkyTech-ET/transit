@@ -1,27 +1,25 @@
 "use client";
 
 import { useEffect } from "react";
-import { Button, Card } from "antd";
 import { useRouter } from "next/navigation";
 import { authRoutes } from "@/modules/auth";
 
 const ClientPage = () => {
   const router = useRouter();
-  const routeTo = () => {
-    router.push(authRoutes.login)
-  }
-  useEffect(() => { routeTo() }, [routeTo])
+  
+  useEffect(() => {
+    // Redirect to login page immediately
+    router.push(authRoutes.login);
+  }, [router]);
 
+  // Show loading or nothing while redirecting
   return (
-    <>
-      <div className="flex flex-row justify-center">
-        <div className="h-[700px] w-96 pt-20 md:pt-64">
-          <Card title="TODO: Home page">
-            <Button onClick={() => router.push(authRoutes.login)}>Login</Button>
-          </Card>
-        </div>
+    <div className="flex items-center justify-center min-h-screen">
+      <div className="text-center">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto mb-4"></div>
+        <p className="text-gray-600">Redirecting to login...</p>
       </div>
-    </>
+    </div>
   );
 };
 

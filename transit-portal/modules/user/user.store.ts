@@ -26,16 +26,9 @@ export const useUserStore = create<IUserStore>((set) => ({
     set({ loading: true, error: null });
     return new Promise((resolve, reject) => {
       set({ loading: true, error: null });
-      let request = payload as any
-      if (!checkFieldValue(request, 'organizationId')) {
-        request.organizationId = useUserStore.getState().additionalParam?.orgId
-      }
-      if (!checkFieldValue(request, 'roles')) {
-        request.roles = useUserStore.getState().additionalParam?.roles as any
-      } else {
-        request.roles = Array.isArray(request.roles) ? request.roles : [request.roles]
-      }
-      addUser(request)
+      console.log('🔍 DEBUG: UserStore - addUser called with payload:', payload);
+      // Payload is already in the correct format from the form
+      addUser(payload)
         .then((res: any) => {
           set({ loading: false, error: null });
           notification.open({
@@ -62,10 +55,9 @@ export const useUserStore = create<IUserStore>((set) => ({
     if (!checkFieldValue(request, 'organizationId')) {
       request.organizationId = useUserStore.getState().additionalParam?.orgId
     }
-    if (!checkFieldValue(request, 'roles')) {
-      request.roles = useUserStore.getState().additionalParam?.roles as any
-    } else {
-      request.roles = Array.isArray(request.roles) ? request.roles : [request.roles]
+    // Ensure Roles is always an array
+    if (request.Roles && !Array.isArray(request.Roles)) {
+      request.Roles = [request.Roles]
     }
     return new Promise((resolve, reject) => {
       updateUser(payload, id)
@@ -115,23 +107,34 @@ export const useUserStore = create<IUserStore>((set) => ({
   },
 
   getUsers: async (status: RecordStatus, pageNumber: number = 1) => {
+    console.log('🔍 DEBUG: getUsers called with status:', status, 'pageNumber:', pageNumber);
     set({ listLoading: true, error: null, filteredUsers: [] });
   
     return new Promise((resolve, reject) => {
+      console.log('🔍 DEBUG: About to call getUsers API...');
       getUsers(status, pageNumber) 
         .then((res: any) => {
-          if (!res.errors) {
-            const users = res.users || [];
+          console.log('🔍 DEBUG: API response received in user store:', res);
+          console.log('🔍 DEBUG: Response type:', typeof res);
+          console.log('🔍 DEBUG: Is array?', Array.isArray(res));
+          
+          // The API returns the data directly as an array
+          if (Array.isArray(res)) {
+            const users = res || [];
+            const pageSize = 10;
+            const totalPages = Math.ceil(users.length / pageSize);
+            console.log('🔍 DEBUG: Users extracted from array:', users.length, 'users');
+            console.log('🔍 DEBUG: Total pages calculated:', totalPages);
             set({
               users: users,
               filteredUsers: users,
               listLoading: false,
               error: null,
               currentPage: pageNumber, 
-              totalPages: res.totalPages || 1, 
-              
+              totalPages: totalPages,
             });
           } else {
+            console.log('🔍 DEBUG: Unexpected response format:', res);
             set({
               users: [],
               filteredUsers: [],
@@ -144,6 +147,7 @@ export const useUserStore = create<IUserStore>((set) => ({
           resolve(res);
         })
         .catch((error: any) => {
+          console.error('🔍 DEBUG: API call failed in user store:', error);
           set({
             users: [],
             filteredUsers: [],
@@ -152,6 +156,8 @@ export const useUserStore = create<IUserStore>((set) => ({
             currentPage: 1, 
             totalPages: 1,   
           });
+          // Don't show notification for empty data, just log the error
+          console.warn('Failed to fetch users:', error);
           reject(error);
         });
     });
@@ -177,6 +183,8 @@ export const useUserStore = create<IUserStore>((set) => ({
             users: [], filteredUsers: [], listLoading: false,
             error: error || "Failed to fetch users by organization."
           }));
+          // Don't show notification for empty data, just log the error
+          console.warn('Failed to fetch users by organization:', error);
           reject(error)
         });
     })

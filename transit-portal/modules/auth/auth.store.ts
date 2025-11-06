@@ -1,7 +1,7 @@
 import { create } from "zustand";
 import { notification } from "antd";
 import { IUser } from "../user/user.types";
-import { deleteCookies, storeToken } from "../utils";
+import { deleteTokens, storeToken } from "../utils/token/client-token.storage";
 import { removeUserData, setUserData } from "../utils/token/user.storage";
 import { AuthState, AuthStore, IPasswordPayload, ILogin } from "./auth.types";
 import { forgotPassword, changePassword, resetPassword, login, signup } from "./auth.endpoints";
@@ -24,14 +24,16 @@ const useAuthStore = create<AuthStore>((set) => ({
           const user: IUser = {
             id: res.id,
             email: res.email,
-            roles: res.roles,
+            roles: res.roles || [], // Ensure roles array exists
             username: res.username,
             lastName: res.lastName,
             firstName: res.firstName,
             phoneNumber: res.phoneNumber,
             organization: res.organization,
-            organizationId:res.organizationId
+            organizationId: res.organizationId
           }
+          console.log('🔍 DEBUG: Login response user data:', user);
+          console.log('🔍 DEBUG: User roles:', user.roles);
           setUserData(user)
           set({ user: user, loading: false, error: null });
           resolve(res)
@@ -50,7 +52,7 @@ const useAuthStore = create<AuthStore>((set) => ({
   },
   logout: async () => {
     set({ loading: true });
-    await deleteCookies();
+    await deleteTokens();
     removeUserData()
     set({ user: null, error: null, loading: false });
   },

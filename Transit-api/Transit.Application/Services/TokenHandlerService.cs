@@ -86,10 +86,11 @@ public class TokenHandlerService
             .Select(s => s[random.Next(s.Length)]).ToArray());
     }
 
-    public List<Claim> GetClaimFromRole(List<RoleDto> roles, string username)
+    public List<Claim> GetClaimFromRole(List<RoleDto> roles, string username, long userId)
     {
         var result = new List<Claim>();
         result.Add(new Claim("userName", username));
+        result.Add(new Claim("id", userId.ToString()));
 
         foreach (var role in roles)
         {

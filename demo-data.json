@@ -1,0 +1,182 @@
+{
+  "customer": {
+    "firstName": "John",
+    "lastName": "Smith",
+    "email": "john.smith@email.com",
+    "phoneNumber": "+1-555-0123",
+    "username": "johnsmith",
+    "password": "SecurePass123!",
+    "address": "123 Main Street, New York, NY 10001",
+    "business": "Electronics Import Company"
+  },
+  "serviceRequest": {
+    "serviceNumber": "SRV-2024-001",
+    "itemDescription": "Electronics Import - 50 Samsung Galaxy S24 Phones",
+    "routeCategory": "Air Freight",
+    "declaredValue": 25000.00,
+    "taxCategory": "Electronics",
+    "countryOfOrigin": "South Korea",
+    "serviceType": "Import",
+    "riskLevel": "Medium",
+    "specialInstructions": "Handle with care - fragile electronics",
+    "priority": "High"
+  },
+  "documents": [
+    {
+      "fileName": "commercial_invoice.pdf",
+      "documentType": "Invoice",
+      "description": "Commercial Invoice for Samsung Phones",
+      "fileSize": 245760,
+      "contentType": "application/pdf"
+    },
+    {
+      "fileName": "bill_of_lading.pdf",
+      "documentType": "BillOfLading", 
+      "description": "Air Waybill for Electronics Shipment",
+      "fileSize": 189440,
+      "contentType": "application/pdf"
+    },
+    {
+      "fileName": "certificate_of_origin.pdf",
+      "documentType": "Certificate",
+      "description": "Certificate of Origin - South Korea", 
+      "fileSize": 156672,
+      "contentType": "application/pdf"
+    },
+    {
+      "fileName": "product_photos.jpg",
+      "documentType": "Photo",
+      "description": "Product photos for verification",
+      "fileSize": 1024000,
+      "contentType": "image/jpeg"
+    }
+  ],
+  "chatMessages": [
+    {
+      "sender": "Customer",
+      "message": "Hi, I need to track my service request SRV-2024-001. When will my electronics shipment arrive?",
+      "timestamp": "2024-01-15T10:30:00Z",
+      "type": "General"
+    },
+    {
+      "sender": "Support Agent", 
+      "message": "Hello John! Your shipment is currently in customs clearance. Expected delivery is within 3-5 business days.",
+      "timestamp": "2024-01-15T10:35:00Z",
+      "type": "StatusUpdate"
+    },
+    {
+      "sender": "Customer",
+      "message": "Great! Can you send me the tracking number?",
+      "timestamp": "2024-01-15T10:36:00Z", 
+      "type": "General"
+    },
+    {
+      "sender": "Support Agent",
+      "message": "Your tracking number is TRK-789456123. You can track it on our website or I'll send you updates via SMS.",
+      "timestamp": "2024-01-15T10:38:00Z",
+      "type": "StatusUpdate"
+    }
+  ],
+  "payment": {
+    "paymentId": "PAY-2024-001",
+    "amount": 2500.00,
+    "currency": "USD",
+    "paymentMethod": "Credit Card",
+    "status": "Completed",
+    "transactionId": "TXN-789456123",
+    "paymentDate": "2024-01-15T11:00:00Z",
+    "receipt": {
+      "receiptNumber": "RCP-2024-001",
+      "items": [
+        {
+          "description": "Import Service Fee",
+          "amount": 1500.00
+        },
+        {
+          "description": "Customs Clearance Fee",
+          "amount": 500.00
+        },
+        {
+          "description": "Delivery Fee", 
+          "amount": 500.00
+        }
+      ],
+      "total": 2500.00,
+      "tax": 250.00,
+      "grandTotal": 2750.00
+    }
+  },
+  "serviceStages": [
+    {
+      "stage": "PrepaymentInvoice",
+      "status": "Completed",
+      "startDate": "2024-01-15T09:00:00Z",
+      "endDate": "2024-01-15T10:00:00Z",
+      "notes": "Payment received and processed successfully"
+    },
+    {
+      "stage": "DropRisk",
+      "status": "Completed", 
+      "startDate": "2024-01-15T10:00:00Z",
+      "endDate": "2024-01-15T11:00:00Z",
+      "notes": "Risk assessment completed - Medium risk electronics"
+    },
+    {
+      "stage": "DeliveryOrder",
+      "status": "Completed",
+      "startDate": "2024-01-15T11:00:00Z", 
+      "endDate": "2024-01-15T12:00:00Z",
+      "notes": "Delivery order generated and sent to warehouse"
+    },
+    {
+      "stage": "Inspection",
+      "status": "InProgress",
+      "startDate": "2024-01-16T08:00:00Z",
+      "endDate": null,
+      "notes": "Customs inspection in progress - electronics verification"
+    },
+    {
+      "stage": "Transportation",
+      "status": "Pending",
+      "startDate": null,
+      "endDate": null,
+      "notes": "Awaiting customs clearance"
+    },
+    {
+      "stage": "Clearance", 
+      "status": "Pending",
+      "startDate": null,
+      "endDate": null,
+      "notes": "Pending customs approval"
+    },
+    {
+      "stage": "Arrival",
+      "status": "Pending",
+      "startDate": null,
+      "endDate": null,
+      "notes": "Scheduled for delivery"
+    }
+  ],
+  "delivery": {
+    "deliveryDate": "2024-01-20T14:30:00Z",
+    "deliveryAddress": "123 Main Street, New York, NY 10001",
+    "deliveryStatus": "Delivered",
+    "recipient": "John Smith",
+    "signature": "John Smith - Digital Signature",
+    "deliveryNotes": "Package delivered successfully. All 50 Samsung Galaxy S24 phones received in good condition.",
+    "photos": [
+      "delivery_confirmation_1.jpg",
+      "delivery_confirmation_2.jpg"
+    ]
+  },
+  "completion": {
+    "serviceStatus": "Completed",
+    "completionDate": "2024-01-20T15:00:00Z",
+    "customerSatisfaction": 5,
+    "feedback": "Excellent service! Fast delivery and great communication throughout the process.",
+    "rating": 5
+  }
+}
+
+
+

@@ -19,7 +19,7 @@ export interface IRolePayload {
 
 
 export interface IRoleState {
-  roles: [];
+  roles: IRole[];
   role: IRole | null;
   error: string | null;
   loading: boolean;

@@ -45,7 +45,14 @@ const UserTable = (props: Props) => {
     // Handle page changes
     const onPageChange = (page: number, pageSize: number) => {
         setPagination({ current: page, pageSize });
-        getUsers(RecordStatus.Active, page, props.searchTerm || '');
+        // No need to call API again since we have all data
+    };
+
+    // Calculate paginated data
+    const getPaginatedUsers = () => {
+        const startIndex = (pagination.current - 1) * pagination.pageSize;
+        const endIndex = startIndex + pagination.pageSize;
+        return props.users.slice(startIndex, endIndex);
     };
 
     const onDelete = async (id: any) => {
@@ -62,8 +69,11 @@ const UserTable = (props: Props) => {
         router.push(userRoutes.resetPassword + id);
     };
 
+    // Calculate total pages based on all users
+    const totalPages = Math.ceil(props.users.length / pagination.pageSize);
+
     const onNext = () => {
-        if (pagination.current < props.totalPages) {
+        if (pagination.current < totalPages) {
             const nextPage = pagination.current + 1;
             onPageChange(nextPage, pagination.pageSize);
         }
@@ -80,7 +90,7 @@ const UserTable = (props: Props) => {
     const getPaginationPages = () => {
         const pagesToShow = [];
         let start = Math.max(1, pagination.current - 2);
-        let end = Math.min(props.totalPages, pagination.current + 2);
+        let end = Math.min(totalPages, pagination.current + 2);
 
         if (pagination.current > 3) pagesToShow.push(1);
         if (start > 2) pagesToShow.push("...");
@@ -89,8 +99,8 @@ const UserTable = (props: Props) => {
             pagesToShow.push(i);
         }
 
-        if (end < props.totalPages - 1) pagesToShow.push("...");
-        if (end < props.totalPages) pagesToShow.push(props.totalPages);
+        if (end < totalPages - 1) pagesToShow.push("...");
+        if (end < totalPages) pagesToShow.push(totalPages);
 
         return pagesToShow;
     };
@@ -101,10 +111,22 @@ const UserTable = (props: Props) => {
                 id="id"
                 size="small"
                 loading={props.loading}
-                dataSource={props.users}
+                dataSource={getPaginatedUsers()}
                 scroll={{ x: 700 }}
                 columns={UserTableColumn({ canDelete, canUpdate, canReset, onDelete, onEdit, onReset })}
                 pagination={false}
+                locale={{
+                    emptyText: (
+                        <div style={{ padding: '40px 0', textAlign: 'center' }}>
+                            <div style={{ fontSize: '16px', color: '#999', marginBottom: '8px' }}>
+                                No users found
+                            </div>
+                            <div style={{ fontSize: '14px', color: '#ccc' }}>
+                                {props.loading ? 'Loading users...' : 'No users have been created yet.'}
+                            </div>
+                        </div>
+                    )
+                }}
             />
 
             {/* Custom Pagination Controls */}
@@ -136,7 +158,7 @@ const UserTable = (props: Props) => {
 
                 <Button
                     onClick={onNext}
-                    disabled={pagination.current === props.totalPages}
+                    disabled={pagination.current === totalPages}
                     style={{ marginLeft: 8 }}
                 >
                     Next

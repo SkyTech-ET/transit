@@ -4,6 +4,7 @@ using Transit.Domain.Models.MOT;
 using Transit.Domain.Models.Shared;
 using Microsoft.EntityFrameworkCore;
 using Transit.Controllers;
+using Transit.API.Helpers;
 
 namespace Transit.API.Controllers.MOT;
 
@@ -26,7 +27,7 @@ public class AssessorController : BaseController
     [HttpGet("customers/pending-approval")]
     public async Task<IActionResult> GetPendingCustomerApprovals()
     {
-        var currentUserId = GetCurrentUserId();
+        var currentUserId = JwtHelper.GetCurrentUserId(_httpContextAccessor, _context);
         if (currentUserId == null)
             return Unauthorized("User not authenticated");
 
@@ -50,7 +51,7 @@ public class AssessorController : BaseController
     [HttpPut("customers/{customerId}/approve")]
     public async Task<IActionResult> ApproveCustomer(long customerId, [FromBody] CustomerApprovalRequest request)
     {
-        var currentUserId = GetCurrentUserId();
+        var currentUserId = JwtHelper.GetCurrentUserId(_httpContextAccessor, _context);
         if (currentUserId == null)
             return Unauthorized("User not authenticated");
 
@@ -85,7 +86,7 @@ public class AssessorController : BaseController
     [HttpGet("services/pending-review")]
     public async Task<IActionResult> GetPendingServiceReviews()
     {
-        var currentUserId = GetCurrentUserId();
+        var currentUserId = JwtHelper.GetCurrentUserId(_httpContextAccessor, _context);
         if (currentUserId == null)
             return Unauthorized("User not authenticated");
 
@@ -109,7 +110,7 @@ public class AssessorController : BaseController
     [HttpPut("services/{serviceId}/review")]
     public async Task<IActionResult> ReviewService(long serviceId, [FromBody] ServiceReviewRequest request)
     {
-        var currentUserId = GetCurrentUserId();
+        var currentUserId = JwtHelper.GetCurrentUserId(_httpContextAccessor, _context);
         if (currentUserId == null)
             return Unauthorized("User not authenticated");
 
@@ -160,7 +161,7 @@ public class AssessorController : BaseController
         [FromQuery] ServiceStatus? status = null,
         [FromQuery] ServiceType? type = null)
     {
-        var currentUserId = GetCurrentUserId();
+        var currentUserId = JwtHelper.GetCurrentUserId(_httpContextAccessor, _context);
         if (currentUserId == null)
             return Unauthorized("User not authenticated");
 
@@ -192,7 +193,7 @@ public class AssessorController : BaseController
     [HttpPost("services/{serviceId}/compliance-feedback")]
     public async Task<IActionResult> AddComplianceFeedback(long serviceId, [FromBody] ComplianceFeedbackRequest request)
     {
-        var currentUserId = GetCurrentUserId();
+        var currentUserId = JwtHelper.GetCurrentUserId(_httpContextAccessor, _context);
         if (currentUserId == null)
             return Unauthorized("User not authenticated");
 
@@ -228,7 +229,7 @@ public class AssessorController : BaseController
     [HttpGet("dashboard")]
     public async Task<IActionResult> GetDashboard()
     {
-        var currentUserId = GetCurrentUserId();
+        var currentUserId = JwtHelper.GetCurrentUserId(_httpContextAccessor, _context);
         if (currentUserId == null)
             return Unauthorized("User not authenticated");
 
@@ -268,7 +269,7 @@ public class AssessorController : BaseController
     [HttpGet("compliance-issues")]
     public async Task<IActionResult> GetComplianceIssues()
     {
-        var currentUserId = GetCurrentUserId();
+        var currentUserId = JwtHelper.GetCurrentUserId(_httpContextAccessor, _context);
         if (currentUserId == null)
             return Unauthorized("User not authenticated");
 
@@ -287,14 +288,6 @@ public class AssessorController : BaseController
         return HandleSuccessResponse(issues);
     }
 
-    private long? GetCurrentUserId()
-    {
-        var authorizationHeader = _httpContextAccessor.HttpContext?.Request.Headers["Authorization"].ToString();
-        if (string.IsNullOrEmpty(authorizationHeader) || !authorizationHeader.StartsWith("Bearer "))
-            return null;
-
-        return 1; // This should be extracted from the JWT token
-    }
 
     private async Task<bool> IsAssessor(long userId)
     {

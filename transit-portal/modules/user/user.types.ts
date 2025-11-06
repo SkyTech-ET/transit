@@ -3,6 +3,10 @@ import { RecordStatus } from "../common/common.types";
 import { IVendor } from "../vendor/vendor.types";
 
 export interface IUser {
+  recordStatus: any;
+  userRoles: boolean;
+  isSuperAdmin: any;
+  profilePhoto: any;
   id: number;
   email: string;
   roles: IRole[];

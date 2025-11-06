@@ -7,5 +7,13 @@ public class RolePrivilege : BaseEntity
     public virtual Privilege Privilege { get; set; }
     public virtual Role Role { get; set; }
 
-
+    public static RolePrivilege Create(long roleId, long privilegeId)
+    {
+        return new RolePrivilege
+        {
+            RoleId = roleId,
+            PrivilegeId = privilegeId,
+            RecordStatus = Shared.RecordStatus.Active
+        };
+    }
 }

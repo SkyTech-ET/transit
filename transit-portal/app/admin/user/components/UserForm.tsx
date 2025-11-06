@@ -7,9 +7,9 @@ import { IUser } from '@/modules/user/user.types';
 import { userRoutes } from '@/modules/user/user.routes';
 import { useUserStore } from '@/modules/user/user.store';
 import { useRoleStore } from '@/modules/role/role.store';
-import { Button, Form, Input, Radio, Select } from "antd";
+import { Button, Form, Input, Radio, Select, Upload, message } from "antd";
+import { UploadOutlined } from "@ant-design/icons";
 import { RecordStatus } from '@/modules/common/common.types';
-import { useVendorStore } from '@/modules/vendor/vendor.store';
 import { usePermissionStore } from '@/modules/utils/permission/permission.store';
 
 
@@ -25,28 +25,78 @@ const UserForm = (props: UserFormProps) => {
     const [form] = Form.useForm();
 
     const { roles, getRoles } = useRoleStore();
-    const { vendors, getVendors} = useVendorStore();
     const { currentUser, isAdmin } = usePermissionStore()
     const { loading, updateUser, addUser, setAdditionalParams } = useUserStore();
 
-    const handleSubmit = async () => {
+    const handleSubmit = async (values: any) => {
         try {
-            const values = await formRef.current?.validateFields();
-            // if (!isAdmin) {
-            //     setAdditionalParams({ orgId: currentUser?.organization.id, roles: [currentUser?.roles[0].id], userId: null })
-            // }
-            if (isAdmin) {
-                setAdditionalParams({ orgId: currentUser?.organization.id, roles: [currentUser?.roles[0].id], userId: null })
+            console.log('🔍 DEBUG: UserForm - handleSubmit called with values:', values);
+            console.log('🔍 DEBUG: UserForm - Values type:', typeof values);
+            console.log('🔍 DEBUG: UserForm - Values keys:', Object.keys(values || {}));
+            
+            // Values are passed from onFinish, but we can also validate if needed
+            await formRef.current?.validateFields();
+            console.log('🔍 DEBUG: UserForm - Form validation passed');
+            
+            // Additional check for role selection
+            if (!values.roles) {
+                console.log('🔍 DEBUG: UserForm - No role selected, preventing submission');
+                return;
             }
-            if (props.isEdit) {
-                const id = props.payload?.id as any;
-                await updateUser(values, id).then((res) => {
-                    routeTo()
+            
+            // Transform form data to match backend expected format (PascalCase)
+            const formData: any = {
+                FirstName: values.firstName,
+                LastName: values.lastName,
+                UserName: values.username, // Backend expects "UserName" not "Username"
+                Email: values.email,
+                Phone: values.phoneNumber,
+                IsSuperAdmin: values.isSuperAdmin || false,
+                RecordStatus: 2, // Active status
+                Roles: values.roles ? [values.roles] : [], // Convert single role to array format expected by backend
+                ProfileFile: values.profileFile || null,
+                OrganizationId: currentUser?.organization?.id || null
+            };
+            
+            // Only include password for create, not for update
+            if (!props.isEdit && values.password) {
+                formData.Password = values.password;
+            }
+            
+            console.log('🔍 DEBUG: Form values received:', values);
+            console.log('🔍 DEBUG: Form values type:', typeof values);
+            console.log('🔍 DEBUG: Form values keys:', Object.keys(values || {}));
+            console.log('🔍 DEBUG: Selected roles:', values.roles);
+            console.log('🔍 DEBUG: Transformed form data:', formData);
+            
+            // Handle organization ID safely - only set if organization exists
+            if (isAdmin && currentUser?.organization?.id) {
+                setAdditionalParams({
+                    orgId: currentUser.organization.id,
+                    userId: null,
+                    roles: []
+                });
+            } else if (isAdmin) {
+                // If admin but no organization, set to null
+                setAdditionalParams({ 
+                    orgId: null, 
+                    userId: null,
+                    roles: []
                 });
             }
-             else {
-                await addUser(values).then((res) => {
+            
+            if (props.isEdit) {
+                const id = props.payload?.id as any;
+                await updateUser(formData, id).then((res) => {
                     routeTo()
+                });
+            } else {
+                console.log('🔍 DEBUG: UserForm - About to call addUser with formData:', formData);
+                await addUser(formData).then((res) => {
+                    console.log('🔍 DEBUG: UserForm - addUser success:', res);
+                    routeTo()
+                }).catch((error) => {
+                    console.log('🔍 DEBUG: UserForm - addUser error:', error);
                 });
             }
         } catch (errorInfo) {
@@ -65,17 +115,46 @@ const UserForm = (props: UserFormProps) => {
         if (roles.length === 0 && isAdmin) {
             getRoles(RecordStatus.Active);
         }
-        if (vendors.length === 0) {
-            getVendors(RecordStatus.Active); 
-        }
     }, [isAdmin])
 
     useEffect(() => {
         if (props.payload && Object.keys(props.payload).length > 0) {
-            form.setFieldsValue(props.payload!);
-        }
-        if (props.payload?.roles) {
-            form.setFieldsValue({ role: props.payload.roles });
+            console.log('🔍 DEBUG: UserForm - Setting form values from payload:', props.payload);
+            
+            // Map backend field names to form field names
+            const formValues = {
+                firstName: props.payload.firstName,
+                lastName: props.payload.lastName,
+                username: props.payload.username,
+                email: props.payload.email,
+                phoneNumber: props.payload.phoneNumber, // Use phoneNumber property
+                profileFile: props.payload.profilePhoto, // Backend returns 'profilePhoto', form expects 'profileFile'
+                isSuperAdmin: props.payload.isSuperAdmin,
+                recordStatus: props.payload.recordStatus,
+                roles: props.payload.userRoles && props.payload.userRoles.length > 0 ? props.payload.userRoles[0].roleId : null, // Map first userRole to single role ID
+            };
+            
+            // For editing, set the existing profile photo as a file list for the Upload component
+            if (props.isEdit && props.payload.profilePhoto) {
+                formValues.profileFile = [{
+                    uid: '-1',
+                    name: 'existing-photo.jpg',
+                    status: 'done',
+                    url: `https://localhost:5001/${props.payload.profilePhoto}`, // Construct full URL
+                }];
+            }
+            
+            console.log('🔍 DEBUG: UserForm - Mapped form values:', formValues);
+            console.log('🔍 DEBUG: UserForm - User roles from payload:', props.payload.userRoles);
+            console.log('🔍 DEBUG: UserForm - Mapped roles:', formValues.roles);
+            console.log('🔍 DEBUG: UserForm - Available roles:', roles);
+            form.setFieldsValue(formValues);
+            
+            // Verify the form values were set correctly
+            setTimeout(() => {
+                const currentFormValues = form.getFieldsValue();
+                console.log('🔍 DEBUG: UserForm - Current form values after setting:', currentFormValues);
+            }, 100);
         }
     }, [props.payload!, form]);
 
@@ -86,57 +165,56 @@ const UserForm = (props: UserFormProps) => {
             ref={formRef}
             name="Add/Edit"
             autoComplete="off"
-            onFinish={handleSubmit}
+            onFinish={(values) => {
+                console.log('🔍 DEBUG: Form onFinish triggered with values:', values);
+                handleSubmit(values);
+            }}
+            onFinishFailed={(errorInfo) => {
+                console.log('🔍 DEBUG: Form validation failed:', errorInfo);
+            }}
             labelCol={{ span: 24 }}
             requiredMark={true}
         >
-               
-                    {/* Organization Dropdown */}
-                    <div className="flex flex-row space-x-4">
-                        <Form.Item
-                            name="organizationId"
-                            label={<span className="font-semibold">Organization</span>}
-                            rules={[{ required: true, message: "Please select your organization!" }]}
-                            labelCol={{ span: 24 }}
-                            className="md:w-1/3 w-full"
-                        >
-                            <Select placeholder="Select Organization">
-                                {vendors.map((organization) => (
-                                    <Select.Option key={organization.id} value={organization.id}>
-                                        {organization.name}
-                                    </Select.Option>
-                                ))}
-                            </Select>
-                        </Form.Item>
-                    </div>
             <div className="flex flex-col  w-full ">
                 {/* Name */}
                 <div className="flex flex-row space-x-4">
                     <Form.Item
                         name="firstName"
-                        label={<span className="font-semibold">First Name</span>}
-                        rules={[{ required: true, message: "Please input your company name!" }]}
+                        label={<span className="font-semibold text-gray-700">First Name</span>}
+                        rules={[{ required: true, message: "The FirstName field is required." }]}
                         labelCol={{ span: 24 }}
                         className='md:w-1/3 w-full'
                     >
                         <Input
-                            placeholder="First Name"
-                            style={{ padding: "10px", paddingLeft: "10px", marginTop: "1px" }}
-                            variant="filled"
+                            placeholder="Enter first name"
+                            size="large"
+                            variant="outlined"
+                            className="w-full"
+                            style={{
+                                borderRadius: '8px',
+                                border: '2px solid #e5e7eb',
+                                transition: 'all 0.3s ease'
+                            }}
                         />
                     </Form.Item>
 
                     <Form.Item
                         name="lastName"
-                        label={<span className="font-semibold">Last Name</span>}
-                        rules={[{ required: true, message: "Please input your company name!" }]}
+                        label={<span className="font-semibold text-gray-700">Last Name</span>}
+                        rules={[{ required: true, message: "The LastName field is required." }]}
                         labelCol={{ span: 24 }}
                         className='md:w-1/3 w-full'
                     >
                         <Input
-                            placeholder="Last Name"
-                            style={{ padding: "10px", paddingLeft: "10px", marginTop: "1px" }}
-                            variant="filled"
+                            placeholder="Enter last name"
+                            size="large"
+                            variant="outlined"
+                            className="w-full"
+                            style={{
+                                borderRadius: '8px',
+                                border: '2px solid #e5e7eb',
+                                transition: 'all 0.3s ease'
+                            }}
                         />
                     </Form.Item>
                 </div>
@@ -145,29 +223,44 @@ const UserForm = (props: UserFormProps) => {
                 <div className="flex flex-row space-x-4">
                     <Form.Item
                         name="username"
-                        label={<span className="font-semibold">Username</span>}
-                        rules={[{ required: true, message: "Please input your username!" }]}
+                        label={<span className="font-semibold text-gray-700">Username</span>}
+                        rules={[{ required: true, message: "The Username field is required." }]}
                         labelCol={{ span: 24 }}
                         className='md:w-1/3 w-full'
                     >
                         <Input
-                            placeholder="Username"
-                            style={{ padding: "10px", paddingLeft: "10px", marginTop: "1px" }}
-                            variant="filled"
+                            placeholder="Enter username"
+                            size="large"
+                            variant="outlined"
+                            className="w-full"
+                            style={{
+                                borderRadius: '8px',
+                                border: '2px solid #e5e7eb',
+                                transition: 'all 0.3s ease'
+                            }}
                         />
                     </Form.Item>
 
                     <Form.Item
                         name="email"
-                        label={<span className="font-semibold">Email</span>}
-                        rules={[{ required: true, message: "Please input your email!" }]}
+                        label={<span className="font-semibold text-gray-700">Email</span>}
+                        rules={[
+                            { required: true, message: "The Email field is required." },
+                            { type: 'email', message: 'Please enter a valid email address!' }
+                        ]}
                         labelCol={{ span: 24 }}
                         className='md:w-1/3 w-full'
                     >
                         <Input
-                            placeholder="Email"
-                            style={{ padding: "10px", paddingLeft: "10px", marginTop: "1px" }}
-                            variant="filled"
+                            placeholder="Enter email address"
+                            size="large"
+                            variant="outlined"
+                            className="w-full"
+                            style={{
+                                borderRadius: '8px',
+                                border: '2px solid #e5e7eb',
+                                transition: 'all 0.3s ease'
+                            }}
                         />
                     </Form.Item>
                 </div>
@@ -177,23 +270,29 @@ const UserForm = (props: UserFormProps) => {
                     <div className="flex flex-row space-x-4">
                         <Form.Item
                             name="password"
-                            label={<span className="font-semibold">Password</span>}
+                            label={<span className="font-semibold text-gray-700">Password</span>}
                             rules={[
-                                { required: true, message: "Please input your password!" },
+                                { required: true, message: "The Password field is required." },
                                 { min: 8, message: 'Password must be at least 8 characters!' },
                             ]}
                             labelCol={{ span: 24 }}
                             className="md:md:w-1/3 w-full"
                         >
                             <Input.Password
-                                placeholder="Password"
-                                style={{ padding: "10px", paddingLeft: "10px" }}
-                                variant="filled"
+                                placeholder="Enter password"
+                                size="large"
+                                variant="outlined"
+                                className="w-full"
+                                style={{
+                                    borderRadius: '8px',
+                                    border: '2px solid #e5e7eb',
+                                    transition: 'all 0.3s ease'
+                                }}
                             />
                         </Form.Item>
                         <Form.Item
                             name="confirmpassword"
-                            label={<span className="font-semibold">Confirm Password</span>}
+                            label={<span className="font-semibold text-gray-700">Confirm Password</span>}
                             rules={[
                                 {
                                     required: true,
@@ -214,9 +313,15 @@ const UserForm = (props: UserFormProps) => {
                             className="md:md:w-1/3 w-full"
                         >
                             <Input.Password
-                                placeholder="Confirm Password"
-                                style={{ padding: "10px", paddingLeft: "10px" }}
-                                variant="filled"
+                                placeholder="Confirm password"
+                                size="large"
+                                variant="outlined"
+                                className="w-full"
+                                style={{
+                                    borderRadius: '8px',
+                                    border: '2px solid #e5e7eb',
+                                    transition: 'all 0.3s ease'
+                                }}
                             />
                         </Form.Item>
                     </div> : null
@@ -226,47 +331,174 @@ const UserForm = (props: UserFormProps) => {
                 {
                     isAdmin &&
                         <Form.Item name="roles"
-                            label={<span className="font-semibold">Role</span>}
-                            rules={[{ required: true, message: "Please select role!" }]}
+                            label={<span className="font-semibold text-gray-700">Role</span>}
+                            rules={[
+                                { required: true, message: "Please select a role!" },
+                                { 
+                                    validator: (_, value) => {
+                                        if (!value) {
+                                            return Promise.reject(new Error('Please select a role!'));
+                                        }
+                                        return Promise.resolve();
+                                    }
+                                }
+                            ]}
                             labelCol={{ span: 24 }}
                             className='md:w-1/3 w-full'>
-                            <Select defaultValue={props.payload?.roles}>
+                            <Select 
+                                placeholder="Choose a role..."
+                                size="large"
+                                variant="outlined"
+                                allowClear
+                                showSearch
+                                optionFilterProp="children"
+                                className="w-full"
+                                style={{
+                                    borderRadius: '8px',
+                                    border: '2px solid #e5e7eb',
+                                    transition: 'all 0.3s ease'
+                                }}
+                                dropdownStyle={{
+                                    borderRadius: '8px',
+                                    boxShadow: '0 10px 25px rgba(0, 0, 0, 0.1)',
+                                    border: '1px solid #e5e7eb'
+                                }}
+                                suffixIcon={
+                                    <svg className="w-4 h-4 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                                    </svg>
+                                }
+                            >
                                 {roles.map((role: any) => {
-                                    return (<Select.Option value={role.id}
-                                        placeholder="Role"
-                                        style={{ padding: "10px", paddingLeft: "10px", marginTop: "1px" }}
-                                        variant="filled"
-                                    >{role.name}
-                                    </Select.Option>)
+                                    return (
+                                        <Select.Option 
+                                            key={role.id} 
+                                            value={role.id}
+                                            className="py-2 px-3 hover:bg-blue-50 transition-colors"
+                                        >
+                                            <div className="flex items-center space-x-2">
+                                                <div className="w-2 h-2 bg-blue-500 rounded-full"></div>
+                                                <span className="font-medium text-gray-700">{role.name}</span>
+                                            </div>
+                                        </Select.Option>
+                                    )
                                 })}
                             </Select>
                         </Form.Item>
                     }
                         <Form.Item
                         name="phoneNumber"
-                        label={<span className="font-semibold">Phone Number</span>}
-                        rules={[{ required: true, message: "Please input your Phone!" }]}
+                        label={<span className="font-semibold text-gray-700">Phone Number</span>}
+                        rules={[{ required: true, message: "The Phone field is required." }]}
                         labelCol={{ span: 24 }}
                         className='md:w-1/3 w-full'
                     >
                         <Input
-                            placeholder="Phone Number"
-                            style={{ padding: "10px", paddingLeft: "10px", marginTop: "1px" }}
-                            variant="filled"
+                            placeholder="Enter phone number"
+                            size="large"
+                            variant="outlined"
+                            className="w-full"
+                            style={{
+                                borderRadius: '8px',
+                                border: '2px solid #e5e7eb',
+                                transition: 'all 0.3s ease'
+                            }}
                         />
                     </Form.Item>
                     </div>
-              
 
-                {/* Record Status */}
-                <div>
-                    <Form.Item name="recordStatus" label="Status"
-                        rules={[{ required: true, message: "Please select record status!" }]}
+                {/* Profile Photo Upload */}
+                <div className="flex flex-row space-x-4">
+                    <Form.Item
+                        name="profileFile"
+                        label={<span className="font-semibold">Profile Photo</span>}
+                        rules={[{ required: !props.isEdit, message: "The ProfileFile field is required." }]}
+                        labelCol={{ span: 24 }}
+                        className='md:w-1/3 w-full'
                     >
-                        <Radio.Group optionType="button" >
+                        <Upload
+                            beforeUpload={(file) => {
+                                // Validate image format
+                                const isImage = file.type.startsWith('image/');
+                                if (!isImage) {
+                                    message.error('You can only upload image files!');
+                                    return false;
+                                }
+                                
+                                // Validate file size (max 5MB)
+                                const isLt5M = file.size / 1024 / 1024 < 5;
+                                if (!isLt5M) {
+                                    message.error('Image must be smaller than 5MB!');
+                                    return false;
+                                }
+                                
+                                // Validate specific image formats
+                                const allowedTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/gif', 'image/webp'];
+                                if (!allowedTypes.includes(file.type)) {
+                                    message.error('Only JPG, PNG, GIF, and WebP images are allowed!');
+                                    return false;
+                                }
+                                
+                                // Set the file in the form
+                                form.setFieldValue('profileFile', file);
+                                return false; // Prevent auto upload
+                            }}
+                            onChange={(info) => {
+                                if (info.fileList.length > 0) {
+                                    // If it's a new file (has originFileObj), use that
+                                    if (info.fileList[0].originFileObj) {
+                                        form.setFieldValue('profileFile', info.fileList[0].originFileObj);
+                                    } else {
+                                        // If it's an existing file (no originFileObj), keep the existing value
+                                        form.setFieldValue('profileFile', props.payload?.profilePhoto);
+                                    }
+                                } else {
+                                    form.setFieldValue('profileFile', null);
+                                }
+                            }}
+                            accept="image/jpeg,image/jpg,image/png,image/gif,image/webp"
+                            maxCount={1}
+                            listType="picture-card"
+                            fileList={props.isEdit && props.payload?.profilePhoto ? [{
+                                uid: '-1',
+                                name: 'existing-photo.jpg',
+                                status: 'done',
+                                url: `https://localhost:5001/${props.payload.profilePhoto}`,
+                            }] : []}
+                        >
+                            <div>
+                                <UploadOutlined />
+                                <div style={{ marginTop: 8 }}>Upload Photo</div>
+                            </div>
+                        </Upload>
+                    </Form.Item>
+                </div>
+
+                {/* SuperAdmin and Record Status */}
+                <div className="flex flex-row space-x-4">
+                    <Form.Item 
+                        name="isSuperAdmin" 
+                        label={<span className="font-semibold">Super Admin</span>}
+                        labelCol={{ span: 24 }}
+                        className='md:w-1/3 w-full'
+                        initialValue={false}
+                    >
+                        <Radio.Group optionType="button">
+                            <Radio value={true}>Yes</Radio>
+                            <Radio value={false}>No</Radio>
+                        </Radio.Group>
+                    </Form.Item>
+
+                    <Form.Item 
+                        name="recordStatus" 
+                        label={<span className="font-semibold">Status</span>}
+                        rules={[{ required: true, message: "Please select record status!" }]}
+                        labelCol={{ span: 24 }}
+                        className='md:w-1/3 w-full'
+                    >
+                        <Radio.Group optionType="button">
                             <Radio value={2}>Active</Radio>
                             <Radio value={1}>InActive</Radio>
-
                         </Radio.Group>
                     </Form.Item>
                 </div>
@@ -279,6 +511,10 @@ const UserForm = (props: UserFormProps) => {
                             loading={loading}
                             block
                             style={{ width: "100%", height: "2.4rem" }}
+                            onClick={() => {
+                                console.log('🔍 DEBUG: Submit button clicked');
+                                console.log('🔍 DEBUG: Form current values:', form.getFieldsValue());
+                            }}
                         >
                             {props.payload != null ? 'Save change' : 'Create'}
                         </Button>

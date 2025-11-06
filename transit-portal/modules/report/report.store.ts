@@ -27,15 +27,13 @@ export const useReportStore = create<IReportStore>((set) => ({
 
                     set({
                         report: {
-                            orders: res.activeOrdersCount, packages: res.activePackagesCount,
-                            subscriptions: res.activeSubscriptionsCount, users: res.activeUsersCount, organizations: res.activeVendorsCount
-                        }, listLoading: false, error: null
-                    });
-
-                    set({
-                        report: {
-                            orders: res.activeOrdersCount, packages: res.activePackagesCount,
-                            subscriptions: res.activeSubscriptionsCount, users: res.activeUsersCount, organizations: res.activeVendorsCount
+                            services: res.activeServicesCount || 0, 
+                            customers: res.activeCustomersCount || 0,
+                            documents: res.activeDocumentsCount || 0, 
+                            messages: res.activeMessagesCount || 0,
+                            notifications: res.activeNotificationsCount || 0,
+                            pendingApprovals: res.pendingApprovalsCount || 0,
+                            users: res.activeUsersCount || 0
                         }, listLoading: false, error: null
                     });
                     resolve(res)
@@ -52,7 +50,7 @@ export const useReportStore = create<IReportStore>((set) => ({
             getReportsByOrg(orgId)
                 .then(async (res: any) => {
                     if (!res.errors) {
-                        set({ listLoading: false, error: null, reportPerVendor: { orders: res.count.activeOrdersCount, packages: res.count.activePackagesCount, menus: res.count.activeServicesCount, users: res.count.activeUsersCount } });
+                        set({ listLoading: false, error: null, reportPerVendor: { services: res.count.activeServicesCount || 0, customers: res.count.activeCustomersCount || 0, documents: res.count.activeDocumentsCount || 0, users: res.count.activeUsersCount || 0 } });
                     } else {
                         set({ listLoading: false, error: null });
                     }

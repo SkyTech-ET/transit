@@ -20,8 +20,10 @@ export default function LoginPage() {
   };
 
   useEffect(() => {
-    if (user) router.push(reportRoutes.dashboard);
-  }, [user]);
+    if (user) {
+      router.push(reportRoutes.dashboard);
+    }
+  }, [user, router]);
 
   return (
     <div className="flex flex-col items-center md:pt-28 pt-8">

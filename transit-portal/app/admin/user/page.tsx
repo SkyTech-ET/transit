@@ -18,7 +18,10 @@ const UserPage = () => {
   const { checkPermission, permissions } = usePermissionStore()
   const { listLoading: loading, currentPage, totalPages, filteredUsers, setSearchTerm, getUsers } = useUserStore();
 
-  useEffect(() => { getUsers(RecordStatus.Active) }, [])
+  useEffect(() => { 
+    console.log('🔍 DEBUG: Users page mounted, calling getUsers...');
+    getUsers(RecordStatus.Active) 
+  }, [])
 
   const onFilter = (status: RecordStatus) => {
     setStatus(status)
@@ -39,6 +42,13 @@ const UserPage = () => {
       <div className="border-b"></div>
       <SearchFiled searchTerm={searchInput} onSearch={onSearch} placeholder="Search users..." />
       <div className="px-5">
+        {console.log('🔍 DEBUG: Rendering UserTable with:', {
+          loading,
+          usersCount: filteredUsers?.length || 0,
+          currentPage,
+          totalPages,
+          filteredUsers: filteredUsers
+        })}
         <UserTable
           loading={loading}
           users={filteredUsers}

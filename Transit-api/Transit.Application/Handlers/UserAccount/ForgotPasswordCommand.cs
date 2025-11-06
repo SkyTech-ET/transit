@@ -45,7 +45,7 @@ public class ForgotPasswordCommandHandler : IRequestHandler<ForgotPasswordComman
 
         var Roles = await GetRole(userAccount);
         string token = _tokenHandlerService.GetJwtString(30/* five minutes to expire*/,
-            _tokenHandlerService.GetClaimFromRole(Roles, userAccount.Username));
+            _tokenHandlerService.GetClaimFromRole(Roles, userAccount.Username, userAccount.Id));
         if (String.IsNullOrEmpty(token))
         {
             result.AddError(ErrorCode.IncorrectPassword, "Invalide Token.");

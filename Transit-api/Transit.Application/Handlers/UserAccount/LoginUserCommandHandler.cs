@@ -110,6 +110,7 @@ internal class LoginUserCommandHandler : IRequestHandler<LoginUserCommand, Opera
     {
         var result = new List<Claim>();
         result.Add(new Claim("userName", user.Username));
+        result.Add(new Claim("id", user.Id.ToString()));
         foreach (var role in user.Roles)
         {
             foreach (var userPrivilege in role.Privileges)

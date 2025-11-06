@@ -15,7 +15,7 @@ export interface IPrivilegePayload {
 
 
 export interface IPrivilegeState {
-  privileges: [];
+  privileges: IPrivilege[];
   privilege: IPrivilege | null;
   error: string | null;
   loading: boolean;

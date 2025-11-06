@@ -140,6 +140,52 @@ const permission = {
     },
     docAnalyzer: {
         uploader: "CognitiveServices-AnalyzePdf"
+    },
+    // MOT System Permissions
+    motService: {
+        getAll: "Service-GetAll",
+        create: "Service-Create",
+        update: "Service-Update",
+        delete: "Service-Delete",
+        getById: "Service-GetById",
+        updateStatus: "Service-UpdateStatus",
+        assign: "Service-Assign"
+    },
+    motCustomer: {
+        getAll: "Customer-GetAll",
+        create: "Customer-Create",
+        update: "Customer-Update",
+        delete: "Customer-Delete",
+        getById: "Customer-GetById",
+        approve: "Customer-Approve"
+    },
+    motDocument: {
+        upload: "Document-Upload",
+        download: "Document-Download",
+        verify: "Document-Verify",
+        delete: "Document-Delete",
+        getAll: "Document-GetAll"
+    },
+    motMessage: {
+        send: "Message-Send",
+        getAll: "Message-GetAll",
+        getById: "Message-GetById"
+    },
+    motNotification: {
+        create: "Notification-Create",
+        getAll: "Notification-GetAll",
+        markAsRead: "Notification-MarkAsRead"
+    },
+    motReport: {
+        getAll: "Report-GetAll",
+        export: "Report-Export"
+    },
+    motDashboard: {
+        view: "Dashboard-View",
+        manager: "Dashboard-Manager",
+        assessor: "Dashboard-Assessor",
+        caseExecutor: "Dashboard-CaseExecutor",
+        dataEncoder: "Dashboard-DataEncoder"
     }
 
 }

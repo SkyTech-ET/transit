@@ -1,3 +1,5 @@
+using Transit.Domain.Models.Shared;
+
 namespace Transit.Domain.Models.MOT;
 
 public class StageDocument : BaseEntity
@@ -55,11 +57,11 @@ public class StageDocument : BaseEntity
         };
     }
 
-    public void Verify(long verifiedByUserId, string? notes = null)
+    public void Verify(long verifiedByUserId, string? verificationNotes = null)
     {
         IsVerified = true;
         VerifiedByUserId = verifiedByUserId;
-        VerificationNotes = notes;
+        VerificationNotes = verificationNotes;
         UpdateAudit("System");
     }
 
@@ -67,11 +69,5 @@ public class StageDocument : BaseEntity
     {
         Description = description;
         UpdateAudit("System");
-    }
-
-    public void VerifyDocument(bool isVerified, string? verificationNotes = null)
-    {
-        IsVerified = isVerified;
-        VerificationNotes = verificationNotes;
     }
 }

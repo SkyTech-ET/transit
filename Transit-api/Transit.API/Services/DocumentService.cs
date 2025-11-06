@@ -20,7 +20,7 @@ public interface IDocumentService
     Task<bool> DeleteServiceDocumentAsync(long documentId);
     Task<bool> DeleteStageDocumentAsync(long documentId);
     Task<bool> DeleteCustomerDocumentAsync(long documentId);
-    Task<bool> VerifyDocumentAsync(long documentId, bool isVerified, string? verificationNotes = null);
+    Task<bool> VerifyDocumentAsync(long documentId, long verifiedByUserId, bool isVerified, string? verificationNotes = null);
     Task<string> GetDocumentPathAsync(long documentId, DocumentCategory category);
 }
 
@@ -227,13 +227,13 @@ public class DocumentService : IDocumentService
         return true;
     }
 
-    public async Task<bool> VerifyDocumentAsync(long documentId, bool isVerified, string? verificationNotes = null)
+    public async Task<bool> VerifyDocumentAsync(long documentId, long verifiedByUserId, bool isVerified, string? verificationNotes = null)
     {
         // This method can be used for any document type
         var serviceDocument = await _context.ServiceDocuments.FindAsync(documentId);
         if (serviceDocument != null)
         {
-            serviceDocument.VerifyDocument(isVerified, verificationNotes);
+            serviceDocument.Verify(verifiedByUserId, verificationNotes);
             await _context.SaveChangesAsync();
             return true;
         }
@@ -241,7 +241,7 @@ public class DocumentService : IDocumentService
         var stageDocument = await _context.StageDocuments.FindAsync(documentId);
         if (stageDocument != null)
         {
-            stageDocument.VerifyDocument(isVerified, verificationNotes);
+            stageDocument.Verify(verifiedByUserId, verificationNotes);
             await _context.SaveChangesAsync();
             return true;
         }

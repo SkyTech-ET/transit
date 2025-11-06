@@ -2,6 +2,7 @@ using Transit.Api.Filters;
 using Transit.Application.Options;
 using Transit.Domain.Data;
 using Transit.API.Services;
+using Transit.Application.DataSeeder;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.FileProviders;
 using Scalar.AspNetCore;
@@ -24,10 +25,27 @@ builder.Services.AddControllers().AddJsonOptions(options =>
 builder.Services.AddHostedService<LogCleanupService>();
 //builder.Services.AddTransient<ActionLogService>();
 
-// ?? ? SWITCHED FROM SQL SERVER TO SQLITE HERE
-builder.Services.AddDbContext<ApplicationDbContext>(options =>
-    options.UseSqlite(builder.Configuration.GetConnectionString("DefaultConnection"))
-);
+// Database configuration based on environment
+var connectionString = builder.Configuration.GetConnectionString("DefaultConnection");
+if (builder.Environment.IsProduction())
+{
+    connectionString = builder.Configuration.GetConnectionString("ProductionConnection");
+}
+
+if (connectionString.Contains("Data Source="))
+{
+    // SQLite for development
+    builder.Services.AddDbContext<ApplicationDbContext>(options =>
+        options.UseSqlite(connectionString)
+    );
+}
+else
+{
+    // SQL Server for production
+    builder.Services.AddDbContext<ApplicationDbContext>(options =>
+        options.UseSqlServer(connectionString)
+    );
+}
 
 builder.Services.AddCors(options =>
 {
@@ -58,6 +76,9 @@ builder.Services.AddScoped<EmailSenderService>();
 builder.Services.AddScoped<INotificationService, NotificationService>();
 builder.Services.AddScoped<IMessagingService, MessagingService>();
 builder.Services.AddScoped<IDocumentService, DocumentService>();
+builder.Services.AddScoped<IFileStorageService, FileStorageService>();
+builder.Services.AddScoped<IDataSeederService, DataSeederService>();
+builder.Services.AddScoped<Transit.API.TestScripts.EndToEndTest>();
 builder.Services.AddSingleton<IHttpContextAccessor, HttpContextAccessor>();
 builder.Services.AddDistributedMemoryCache();
 #endregion

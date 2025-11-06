@@ -17,13 +17,13 @@ const config: {
     base: "https://localhost:5001/api/v1",
 
     // dev url
-    dev: "https://localhost:5001/api/v1",
+    dev: "http://localhost:5001/api/v1",
 
     // prod url
     pro: "https://api.transit.com/api/v1",
 
     // test url
-    test: "https://localhost:5001/api/v1",
+    test: "http://localhost:5001/api/v1",
   },
 
   /**

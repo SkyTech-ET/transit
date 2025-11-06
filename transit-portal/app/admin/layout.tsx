@@ -37,12 +37,45 @@ const AdminLayout = ({ children }: { children: React.ReactNode }) => {
   };
   const getSelectedKey = () => {
     let key;
-    (isAdmin ? adminMenus : menuItems).forEach((element: any) => {
+    const currentMenus = getCurrentMenus();
+    currentMenus.forEach((element: any) => {
       if (element.path == pathname) {
         key = element.key
       }
     });
     return key || '';
+  }
+
+  const getCurrentMenus = () => {
+    // If user is admin, show all admin menus
+    if (isAdmin) {
+      return adminMenus;
+    }
+    
+    // For non-admin users, show a filtered version of adminMenus based on permissions
+    // This allows customers and other roles to see MOT System modules they have access to
+    return adminMenus.filter(menuItem => {
+      // Always show Dashboard
+      if (menuItem.key === "1") return true;
+      
+      // Check if user has permission for this menu item
+      if (menuItem.permission) {
+        return checkPermission(permissions, menuItem.permission);
+      }
+      
+      // For submenus, check if any submenu item is accessible
+      if (menuItem.items && menuItem.items.length > 0) {
+        const hasAccessibleSubmenu = menuItem.items.some(subItem => {
+          if (subItem.permission) {
+            return checkPermission(permissions, subItem.permission);
+          }
+          return true;
+        });
+        return hasAccessibleSubmenu;
+      }
+      
+      return false;
+    });
   }
 
   useEffect(() => {
@@ -91,7 +124,7 @@ const AdminLayout = ({ children }: { children: React.ReactNode }) => {
             style={{ background: "white", marginTop: "5%" }}
             className="shadow"
           >
-            {(isAdmin ? adminMenus : menuItems).map((menuItem: any) =>
+            {getCurrentMenus().map((menuItem: any) =>
               RenderMenuItem(menuItem, handleItemClick, checkPermission, permissions)
             )}
           </Menu>
@@ -123,7 +156,7 @@ const AdminLayout = ({ children }: { children: React.ReactNode }) => {
             selectedKeys={[getSelectedKey()]}
             style={{ background: "white", marginTop: "5%" }}
           >
-            {(isAdmin ? adminMenus : menuItems).map((menuItem: any) =>
+            {getCurrentMenus().map((menuItem: any) =>
               RenderMenuItem(menuItem, handleItemClick, checkPermission, permissions)
             )}
           </Menu>
