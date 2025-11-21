@@ -4,6 +4,11 @@ using Transit.Domain.Models.MOT;
 using Transit.Domain.Models.Shared;
 using Microsoft.EntityFrameworkCore;
 using Transit.Controllers;
+using Transit.API.Helpers;
+using Transit.Application;
+using Transit.Api.Contracts.MOT.Request;
+using Transit.Api.Contracts.MOT.Response;
+using Mapster;
 
 namespace Transit.API.Controllers.MOT;
 
@@ -23,12 +28,12 @@ public class CaseExecutorController : BaseController
     /// <summary>
     /// Get assigned services for the case executor
     /// </summary>
-    [HttpGet("services")]
+    [HttpGet("GetAssignedServices")]
     public async Task<IActionResult> GetAssignedServices(
         [FromQuery] ServiceStatus? status = null,
         [FromQuery] ServiceType? type = null)
     {
-        var currentUserId = GetCurrentUserId();
+        var currentUserId = JwtHelper.GetCurrentUserId(_httpContextAccessor, _context);
         if (currentUserId == null)
             return Unauthorized("User not authenticated");
 
@@ -56,10 +61,10 @@ public class CaseExecutorController : BaseController
     /// <summary>
     /// Get service details for execution
     /// </summary>
-    [HttpGet("services/{serviceId}")]
-    public async Task<IActionResult> GetServiceDetails(long serviceId)
+    [HttpGet("GetServiceById")]
+    public async Task<IActionResult> GetServiceById([FromQuery] long serviceId)
     {
-        var currentUserId = GetCurrentUserId();
+        var currentUserId = JwtHelper.GetCurrentUserId(_httpContextAccessor, _context);
         if (currentUserId == null)
             return Unauthorized("User not authenticated");
 
@@ -85,64 +90,66 @@ public class CaseExecutorController : BaseController
     /// <summary>
     /// Update service stage status
     /// </summary>
-    [HttpPut("services/{serviceId}/stages/{stageId}/status")]
-    public async Task<IActionResult> UpdateStageStatus(
-        long serviceId, 
-        long stageId, 
-        [FromBody] UpdateStageStatusRequest request)
+    [HttpPut("UpdateStageStatus")]
+    public async Task<IActionResult> UpdateStageStatus([FromBody] UpdateStageStatusRequest request)
     {
-        var currentUserId = GetCurrentUserId();
+        var currentUserId = JwtHelper.GetCurrentUserId(_httpContextAccessor, _context);
         if (currentUserId == null)
             return Unauthorized("User not authenticated");
 
         if (!await IsCaseExecutor(currentUserId.Value))
             return Forbid("Access denied. Case Executor role required.");
 
+        // Verify service is assigned to this case executor
         var service = await _context.Services
-            .FirstOrDefaultAsync(s => s.Id == serviceId && s.AssignedCaseExecutorId == currentUserId.Value);
+            .FirstOrDefaultAsync(s => s.Id == request.ServiceId && s.AssignedCaseExecutorId == currentUserId.Value);
 
         if (service == null)
             return NotFound("Service not found or not assigned to you");
 
-        var stage = await _context.ServiceStages
-            .FirstOrDefaultAsync(s => s.Id == stageId && s.ServiceId == serviceId);
+        var command = new UpdateServiceStageCommand
+        {
+            ServiceStageId = request.StageId,
+            Status = request.Status,
+            Notes = request.Comments,
+            UpdatedByUserId = currentUserId.Value
+        };
 
-        if (stage == null)
-            return NotFound("Service stage not found");
+        var result = await _mediator.Send(command);
 
-        stage.UpdateStatus(request.Status, currentUserId.Value, request.Comments);
+        if (result.IsError)
+            return HandleErrorResponse(result.Errors);
 
         // Update service status if needed
         if (request.Status == StageStatus.Completed)
         {
             // Check if all stages are completed
             var allStages = await _context.ServiceStages
-                .Where(s => s.ServiceId == serviceId)
+                .Where(s => s.ServiceId == request.ServiceId)
                 .ToListAsync();
 
             if (allStages.All(s => s.Status == StageStatus.Completed))
             {
                 service.UpdateStatus(ServiceStatus.Completed);
+                await _context.SaveChangesAsync();
             }
         }
 
-        await _context.SaveChangesAsync();
-
-        return HandleSuccessResponse(stage);
+        return HandleSuccessResponse(result.Payload);
     }
 
     /// <summary>
     /// Upload document for a service stage
     /// </summary>
-    [HttpPost("services/{serviceId}/stages/{stageId}/documents")]
+    [HttpPost("UploadStageDocument")]
     public async Task<IActionResult> UploadStageDocument(
-        long serviceId, 
-        long stageId, 
-        IFormFile file, 
+        [FromForm] long serviceId,
+        [FromForm] long stageId,
+        [FromForm] IFormFile file, 
         [FromForm] DocumentType documentType,
         [FromForm] string? description = null)
     {
-        var currentUserId = GetCurrentUserId();
+        var currentUserId = JwtHelper.GetCurrentUserId(_httpContextAccessor, _context);
         if (currentUserId == null)
             return Unauthorized("User not authenticated");
 
@@ -199,13 +206,10 @@ public class CaseExecutorController : BaseController
     /// <summary>
     /// Add comment to a service stage
     /// </summary>
-    [HttpPost("services/{serviceId}/stages/{stageId}/comments")]
-    public async Task<IActionResult> AddStageComment(
-        long serviceId, 
-        long stageId, 
-        [FromBody] AddStageCommentRequest request)
+    [HttpPost("AddStageComment")]
+    public async Task<IActionResult> AddStageComment([FromBody] AddStageCommentRequest request)
     {
-        var currentUserId = GetCurrentUserId();
+        var currentUserId = JwtHelper.GetCurrentUserId(_httpContextAccessor, _context);
         if (currentUserId == null)
             return Unauthorized("User not authenticated");
 
@@ -213,20 +217,20 @@ public class CaseExecutorController : BaseController
             return Forbid("Access denied. Case Executor role required.");
 
         var service = await _context.Services
-            .FirstOrDefaultAsync(s => s.Id == serviceId && s.AssignedCaseExecutorId == currentUserId.Value);
+            .FirstOrDefaultAsync(s => s.Id == request.ServiceId && s.AssignedCaseExecutorId == currentUserId.Value);
 
         if (service == null)
             return NotFound("Service not found or not assigned to you");
 
         var stage = await _context.ServiceStages
-            .FirstOrDefaultAsync(s => s.Id == stageId && s.ServiceId == serviceId);
+            .FirstOrDefaultAsync(s => s.Id == request.StageId && s.ServiceId == request.ServiceId);
 
         if (stage == null)
             return NotFound("Service stage not found");
 
         var comment = StageComment.Create(
             request.Comment,
-            stageId,
+            request.StageId,
             currentUserId.Value
         );
 
@@ -239,10 +243,10 @@ public class CaseExecutorController : BaseController
     /// <summary>
     /// Set risk level for a service
     /// </summary>
-    [HttpPut("services/{serviceId}/risk-level")]
-    public async Task<IActionResult> SetRiskLevel(long serviceId, [FromBody] SetRiskLevelRequest request)
+    [HttpPut("SetRiskLevel")]
+    public async Task<IActionResult> SetRiskLevel([FromBody] SetRiskLevelRequest request)
     {
-        var currentUserId = GetCurrentUserId();
+        var currentUserId = JwtHelper.GetCurrentUserId(_httpContextAccessor, _context);
         if (currentUserId == null)
             return Unauthorized("User not authenticated");
 
@@ -250,7 +254,7 @@ public class CaseExecutorController : BaseController
             return Forbid("Access denied. Case Executor role required.");
 
         var service = await _context.Services
-            .FirstOrDefaultAsync(s => s.Id == serviceId && s.AssignedCaseExecutorId == currentUserId.Value);
+            .FirstOrDefaultAsync(s => s.Id == request.ServiceId && s.AssignedCaseExecutorId == currentUserId.Value);
 
         if (service == null)
             return NotFound("Service not found or not assigned to you");
@@ -261,7 +265,7 @@ public class CaseExecutorController : BaseController
         if (!string.IsNullOrEmpty(request.RiskNotes))
         {
             var currentStage = await _context.ServiceStages
-                .Where(s => s.ServiceId == serviceId)
+                .Where(s => s.ServiceId == request.ServiceId)
                 .OrderByDescending(s => s.RegisteredDate)
                 .FirstOrDefaultAsync();
 
@@ -279,10 +283,10 @@ public class CaseExecutorController : BaseController
     /// <summary>
     /// Block a service stage
     /// </summary>
-    [HttpPut("services/{serviceId}/stages/{stageId}/block")]
-    public async Task<IActionResult> BlockStage(long serviceId, long stageId, [FromBody] BlockStageRequest request)
+    [HttpPut("BlockStage")]
+    public async Task<IActionResult> BlockStage([FromBody] BlockStageRequest request)
     {
-        var currentUserId = GetCurrentUserId();
+        var currentUserId = JwtHelper.GetCurrentUserId(_httpContextAccessor, _context);
         if (currentUserId == null)
             return Unauthorized("User not authenticated");
 
@@ -290,13 +294,13 @@ public class CaseExecutorController : BaseController
             return Forbid("Access denied. Case Executor role required.");
 
         var service = await _context.Services
-            .FirstOrDefaultAsync(s => s.Id == serviceId && s.AssignedCaseExecutorId == currentUserId.Value);
+            .FirstOrDefaultAsync(s => s.Id == request.ServiceId && s.AssignedCaseExecutorId == currentUserId.Value);
 
         if (service == null)
             return NotFound("Service not found or not assigned to you");
 
         var stage = await _context.ServiceStages
-            .FirstOrDefaultAsync(s => s.Id == stageId && s.ServiceId == serviceId);
+            .FirstOrDefaultAsync(s => s.Id == request.StageId && s.ServiceId == request.ServiceId);
 
         if (stage == null)
             return NotFound("Service stage not found");
@@ -311,17 +315,17 @@ public class CaseExecutorController : BaseController
     /// <summary>
     /// Get case executor dashboard
     /// </summary>
-    [HttpGet("dashboard")]
+    [HttpGet("GetDashboard")]
     public async Task<IActionResult> GetDashboard()
     {
-        var currentUserId = GetCurrentUserId();
+        var currentUserId = JwtHelper.GetCurrentUserId(_httpContextAccessor, _context);
         if (currentUserId == null)
             return Unauthorized("User not authenticated");
 
         if (!await IsCaseExecutor(currentUserId.Value))
             return Forbid("Access denied. Case Executor role required.");
 
-        var dashboard = new CaseExecutorDashboardResponse
+        var dashboard = new Transit.Api.Contracts.MOT.Response.CaseExecutorDashboardResponse
         {
             AssignedServices = await _context.Services.CountAsync(s => s.AssignedCaseExecutorId == currentUserId.Value),
             PendingServices = await _context.Services.CountAsync(s => s.AssignedCaseExecutorId == currentUserId.Value && s.Status == ServiceStatus.InProgress),
@@ -346,14 +350,6 @@ public class CaseExecutorController : BaseController
         return HandleSuccessResponse(dashboard);
     }
 
-    private long? GetCurrentUserId()
-    {
-        var authorizationHeader = _httpContextAccessor.HttpContext?.Request.Headers["Authorization"].ToString();
-        if (string.IsNullOrEmpty(authorizationHeader) || !authorizationHeader.StartsWith("Bearer "))
-            return null;
-
-        return 1; // This should be extracted from the JWT token
-    }
 
     private async Task<bool> IsCaseExecutor(long userId)
     {
@@ -364,34 +360,4 @@ public class CaseExecutorController : BaseController
 
         return user?.UserRoles.Any(ur => ur.Role.Name == "CaseExecutor") ?? false;
     }
-}
-
-
-public class AddStageCommentRequest
-{
-    public string Comment { get; set; } = string.Empty;
-    public string? CommentType { get; set; }
-    public bool IsInternal { get; set; } = false;
-    public bool IsVisibleToCustomer { get; set; } = true;
-}
-
-public class SetRiskLevelRequest
-{
-    public RiskLevel RiskLevel { get; set; }
-    public string? RiskNotes { get; set; }
-}
-
-public class BlockStageRequest
-{
-    public string Reason { get; set; } = string.Empty;
-}
-
-public class CaseExecutorDashboardResponse
-{
-    public int AssignedServices { get; set; }
-    public int PendingServices { get; set; }
-    public int CompletedServices { get; set; }
-    public int BlockedStages { get; set; }
-    public List<ServiceStageExecution> TodaysTasks { get; set; } = new();
-    public List<Notification> UrgentNotifications { get; set; } = new();
 }

@@ -40,8 +40,7 @@ const UserProfile = ({ params }: Props) => {
           ),
         },
       ];
-      console.log("us org ",user,"- ",user?.roles);
-      const onChange = (key: string) => {
+     const onChange = (key: string) => {
      
       };
     useEffect(() => { 

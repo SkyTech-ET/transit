@@ -4,6 +4,7 @@ using Transit.Controllers;
 using Transit.Domain.Models.Shared;
 using Transit.Domain.Data;
 using Transit.API.Helpers;
+using Transit.Api.Contracts.MOT.Request;
 
 namespace Transit.API.Controllers.MOT;
 
@@ -28,9 +29,9 @@ public class DocumentController : BaseController
         _httpContextAccessor = httpContextAccessor;
     }
 
-    [HttpPost("service/{serviceId}/upload")]
+    [HttpPost("UploadServiceDocument")]
     public async Task<IActionResult> UploadServiceDocument(
-        long serviceId,
+        [FromForm] long serviceId,
         [FromForm] IFormFile file,
         [FromForm] DocumentType documentType,
         [FromForm] long? serviceStageId = null,
@@ -63,9 +64,9 @@ public class DocumentController : BaseController
         }
     }
 
-    [HttpPost("stage/{serviceStageId}/upload")]
+    [HttpPost("UploadStageDocument")]
     public async Task<IActionResult> UploadStageDocument(
-        long serviceStageId,
+        [FromForm] long serviceStageId,
         [FromForm] IFormFile file,
         [FromForm] DocumentType documentType,
         [FromForm] string? description = null)
@@ -95,9 +96,9 @@ public class DocumentController : BaseController
         }
     }
 
-    [HttpPost("customer/{customerId}/upload")]
+    [HttpPost("UploadCustomerDocument")]
     public async Task<IActionResult> UploadCustomerDocument(
-        long customerId,
+        [FromForm] long customerId,
         [FromForm] IFormFile file,
         [FromForm] DocumentType documentType,
         [FromForm] string? description = null)
@@ -127,8 +128,8 @@ public class DocumentController : BaseController
         }
     }
 
-    [HttpGet("service/{serviceId}")]
-    public async Task<IActionResult> GetServiceDocuments(long serviceId)
+    [HttpGet("GetServiceDocuments")]
+    public async Task<IActionResult> GetServiceDocuments([FromQuery] long serviceId)
     {
         try
         {
@@ -141,8 +142,8 @@ public class DocumentController : BaseController
         }
     }
 
-    [HttpGet("stage/{serviceStageId}")]
-    public async Task<IActionResult> GetStageDocuments(long serviceStageId)
+    [HttpGet("GetStageDocuments")]
+    public async Task<IActionResult> GetStageDocuments([FromQuery] long serviceStageId)
     {
         try
         {
@@ -155,8 +156,8 @@ public class DocumentController : BaseController
         }
     }
 
-    [HttpGet("customer/{customerId}")]
-    public async Task<IActionResult> GetCustomerDocuments(long customerId)
+    [HttpGet("GetCustomerDocuments")]
+    public async Task<IActionResult> GetCustomerDocuments([FromQuery] long customerId)
     {
         try
         {
@@ -169,8 +170,8 @@ public class DocumentController : BaseController
         }
     }
 
-    [HttpGet("service-document/{documentId}")]
-    public async Task<IActionResult> GetServiceDocument(long documentId)
+    [HttpGet("GetServiceDocumentById")]
+    public async Task<IActionResult> GetServiceDocumentById([FromQuery] long documentId)
     {
         try
         {
@@ -186,8 +187,8 @@ public class DocumentController : BaseController
         }
     }
 
-    [HttpGet("stage-document/{documentId}")]
-    public async Task<IActionResult> GetStageDocument(long documentId)
+    [HttpGet("GetStageDocumentById")]
+    public async Task<IActionResult> GetStageDocumentById([FromQuery] long documentId)
     {
         try
         {
@@ -203,8 +204,8 @@ public class DocumentController : BaseController
         }
     }
 
-    [HttpGet("customer-document/{documentId}")]
-    public async Task<IActionResult> GetCustomerDocument(long documentId)
+    [HttpGet("GetCustomerDocumentById")]
+    public async Task<IActionResult> GetCustomerDocumentById([FromQuery] long documentId)
     {
         try
         {
@@ -220,8 +221,8 @@ public class DocumentController : BaseController
         }
     }
 
-    [HttpDelete("service-document/{documentId}")]
-    public async Task<IActionResult> DeleteServiceDocument(long documentId)
+    [HttpDelete("DeleteServiceDocument")]
+    public async Task<IActionResult> DeleteServiceDocument([FromQuery] long documentId)
     {
         try
         {
@@ -237,8 +238,8 @@ public class DocumentController : BaseController
         }
     }
 
-    [HttpDelete("stage-document/{documentId}")]
-    public async Task<IActionResult> DeleteStageDocument(long documentId)
+    [HttpDelete("DeleteStageDocument")]
+    public async Task<IActionResult> DeleteStageDocument([FromQuery] long documentId)
     {
         try
         {
@@ -254,8 +255,8 @@ public class DocumentController : BaseController
         }
     }
 
-    [HttpDelete("customer-document/{documentId}")]
-    public async Task<IActionResult> DeleteCustomerDocument(long documentId)
+    [HttpDelete("DeleteCustomerDocument")]
+    public async Task<IActionResult> DeleteCustomerDocument([FromQuery] long documentId)
     {
         try
         {
@@ -271,8 +272,8 @@ public class DocumentController : BaseController
         }
     }
 
-    [HttpPost("verify/{documentId}")]
-    public async Task<IActionResult> VerifyDocument(long documentId, [FromBody] VerifyDocumentRequest request)
+    [HttpPost("VerifyDocument")]
+    public async Task<IActionResult> VerifyDocument([FromBody] Transit.Api.Contracts.MOT.Request.VerifyDocumentRequest request)
     {
         try
         {
@@ -280,7 +281,7 @@ public class DocumentController : BaseController
             if (verifiedByUserId == null)
                 return Unauthorized("User not authenticated");
 
-            var result = await _documentService.VerifyDocumentAsync(documentId, verifiedByUserId.Value, request.IsVerified, request.VerificationNotes);
+            var result = await _documentService.VerifyDocumentAsync(request.DocumentId, verifiedByUserId.Value, request.IsVerified, request.VerificationNotes);
             if (!result)
                 return NotFound("Document not found");
 
@@ -292,8 +293,8 @@ public class DocumentController : BaseController
         }
     }
 
-    [HttpGet("download/{documentId}/{category}")]
-    public async Task<IActionResult> DownloadDocument(long documentId, DocumentCategory category)
+    [HttpGet("DownloadDocument")]
+    public async Task<IActionResult> DownloadDocument([FromQuery] long documentId, [FromQuery] DocumentCategory category)
     {
         try
         {
@@ -316,10 +317,4 @@ public class DocumentController : BaseController
     {
         return JwtHelper.GetCurrentUserId(_httpContextAccessor, _context);
     }
-}
-
-public class VerifyDocumentRequest
-{
-    public bool IsVerified { get; set; }
-    public string? VerificationNotes { get; set; }
 }

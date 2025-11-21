@@ -26,8 +26,7 @@ export const useUserStore = create<IUserStore>((set) => ({
     set({ loading: true, error: null });
     return new Promise((resolve, reject) => {
       set({ loading: true, error: null });
-      console.log('🔍 DEBUG: UserStore - addUser called with payload:', payload);
-      // Payload is already in the correct format from the form
+   // Payload is already in the correct format from the form
       addUser(payload)
         .then((res: any) => {
           set({ loading: false, error: null });

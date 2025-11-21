@@ -5,13 +5,14 @@ const serviceEndpoints = Object.freeze({
   getAll: '/Service/GetAll',
   getById: '/Service/GetById',
   create: '/Service/Create',
-  createCustomer: '/Customer/services', // New endpoint for customer service creation
+  createCustomer: '/Customer/services', // Customer creates service request
   update: '/Service/Update',
   delete: '/Service/Delete',
   updateStatus: '/Service/UpdateStatus',
-  assign: '/Service/Assign',
+  assign: '/Service/Assign', // Service assignment
+  assignExecutor: '/Manager/AssignExecutor', // Manager assigns executor
   getStages: '/Service/GetStages',
-  updateStageStatus: '/Service/UpdateStageStatus',
+  updateStageStatus: '/CaseExecutor/UpdateStageStatus', // CaseExecutor updates stage
   getMyServices: '/Customer/services',
   getServiceDetails: '/Customer/services',
 });
@@ -63,11 +64,20 @@ export const updateServiceStatus = (id: number, status: number): Promise<Respons
   });
 };
 
-export const assignService = (id: number, userId: number, role: 'caseExecutor' | 'assessor'): Promise<Response> => {
-  return http.put({ 
-    url: `${serviceEndpoints.assign}/${id}`, 
-    data: { userId, role } 
-  });
+export const assignService = (serviceId: number, userId: number, role: 'caseExecutor' | 'assessor'): Promise<Response> => {
+  if (role === 'caseExecutor') {
+    // Use Manager endpoint for case executor assignment
+    return http.put({ 
+      url: serviceEndpoints.assignExecutor, 
+      data: { serviceId, caseExecutorId: userId } 
+    });
+  } else {
+    // Use Service endpoint for assessor assignment
+    return http.put({ 
+      url: serviceEndpoints.assign, 
+      data: { serviceId, userId, role } 
+    });
+  }
 };
 
 export const getServiceStages = (serviceId: number): Promise<Response> => {
@@ -76,10 +86,15 @@ export const getServiceStages = (serviceId: number): Promise<Response> => {
   });
 };
 
-export const updateStageStatus = (stageId: number, status: number, notes?: string): Promise<Response> => {
+export const updateStageStatus = (serviceId: number, stageId: number, status: number, notes?: string): Promise<Response> => {
   return http.put({ 
-    url: `${serviceEndpoints.updateStageStatus}/${stageId}`, 
-    data: { status, notes } 
+    url: serviceEndpoints.updateStageStatus, 
+    data: { 
+      serviceId, 
+      stageId, 
+      status, 
+      comments: notes 
+    } 
   });
 };
 

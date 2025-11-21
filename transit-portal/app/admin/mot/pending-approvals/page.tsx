@@ -4,92 +4,28 @@ import React, { useEffect, useState } from "react";
 import { Card, Table, Button, Space, Tag, Typography, Empty, Modal, Form, Input, Select, message, Badge } from "antd";
 import { CheckCircle, XCircle, Eye, Clock, User, FileText, Calendar } from "lucide-react";
 import { usePermissionStore } from "@/modules/utils";
+import { useCustomerStore } from "@/modules/mot/customer";
 import permission from "@/modules/utils/permission/permission";
 
 const { TextArea } = Input;
 const { Option } = Select;
 
-interface PendingApproval {
-  id: number;
-  serviceNumber: string;
-  customerName: string;
-  serviceType: string;
-  submittedDate: string;
-  status: 'pending' | 'under_review' | 'approved' | 'rejected';
-  documents: number;
-  priority: 'low' | 'medium' | 'high';
-  assignedTo?: string;
-  notes?: string;
-}
-
 const PendingApprovalsPage = () => {
   const { checkPermission, permissions } = usePermissionStore();
-  const [approvals, setApprovals] = useState<PendingApproval[]>([]);
-  const [loading, setLoading] = useState(false);
-  const [selectedApproval, setSelectedApproval] = useState<PendingApproval | null>(null);
+  const { pendingCustomers, loading, getPendingCustomers, approveCustomer } = useCustomerStore();
+  const [selectedApproval, setSelectedApproval] = useState<any>(null);
   const [modalVisible, setModalVisible] = useState(false);
   const [actionModalVisible, setActionModalVisible] = useState(false);
   const [actionType, setActionType] = useState<'approve' | 'reject' | null>(null);
   const [form] = Form.useForm();
 
-  // Mock data - replace with actual API call
   useEffect(() => {
-    setLoading(true);
-    // Simulate API call
-    setTimeout(() => {
-      setApprovals([
-        {
-          id: 1,
-          serviceNumber: "SR-2024-001",
-          customerName: "John Doe",
-          serviceType: "Vehicle Registration",
-          submittedDate: '2024-01-15T10:30:00Z',
-          status: 'pending',
-          documents: 5,
-          priority: 'high',
-          assignedTo: 'Manager A',
-          notes: 'Urgent processing required'
-        },
-        {
-          id: 2,
-          serviceNumber: "SR-2024-002",
-          customerName: "Jane Smith",
-          serviceType: "License Renewal",
-          submittedDate: '2024-01-15T09:15:00Z',
-          status: 'under_review',
-          documents: 3,
-          priority: 'medium',
-          assignedTo: 'Assessor B',
-          notes: 'Additional documents requested'
-        },
-        {
-          id: 3,
-          serviceNumber: "SR-2024-003",
-          customerName: "Bob Johnson",
-          serviceType: "Permit Application",
-          submittedDate: '2024-01-14T16:45:00Z',
-          status: 'pending',
-          documents: 7,
-          priority: 'low',
-          assignedTo: 'Case Executor C',
-          notes: 'Standard processing'
-        },
-        {
-          id: 4,
-          serviceNumber: "SR-2024-004",
-          customerName: "Alice Brown",
-          serviceType: "Vehicle Inspection",
-          submittedDate: '2024-01-14T14:20:00Z',
-          status: 'under_review',
-          documents: 4,
-          priority: 'high',
-          assignedTo: 'Data Encoder D',
-          notes: 'Inspection scheduled'
-        }
-      ]);
-      setLoading(false);
-    }, 1000);
+    loadPendingApprovals();
   }, []);
+
+  const loadPendingApprovals = async () => {
+    await getPendingCustomers();
+  };
 
   const handleViewDetails = (approval: PendingApproval) => {
     setSelectedApproval(approval);
@@ -104,116 +40,76 @@ const PendingApprovalsPage = () => {
   };
 
   const handleSubmitAction = async (values: any) => {
+    if (!selectedApproval) return;
+    
     try {
-      // Simulate API call
-      await new Promise(resolve => setTimeout(resolve, 1000));
+      await approveCustomer(selectedApproval.id, {
+        isApproved: actionType === 'approve',
+        notes: values.notes || '',
+      });
       
-      setApprovals(prev => 
-        prev.map(approval => 
-          approval.id === selectedApproval?.id 
-            ? { 
-                ...approval, 
-                status: actionType === 'approve' ? 'approved' : 'rejected',
-                notes: values.notes || approval.notes
-              }
-            : approval
-        )
-      );
-
-      message.success(`Service ${actionType === 'approve' ? 'approved' : 'rejected'} successfully`);
+      message.success(`Customer ${actionType === 'approve' ? 'approved' : 'rejected'} successfully`);
       setActionModalVisible(false);
       setModalVisible(false);
       form.resetFields();
-    } catch (error) {
-      message.error('Failed to process approval');
+      await loadPendingApprovals();
+    } catch (error: any) {
+      message.error(error.message || 'Failed to process approval');
     }
   };
 
-  const getStatusColor = (status: string) => {
-    switch (status) {
-      case 'pending': return 'orange';
-      case 'under_review': return 'blue';
-      case 'approved': return 'green';
-      case 'rejected': return 'red';
-      default: return 'default';
-    }
+  const getStatusColor = (isVerified: boolean) => {
+    return isVerified ? 'green' : 'orange';
   };
 
-  const getPriorityColor = (priority: string) => {
-    switch (priority) {
-      case 'high': return 'red';
-      case 'medium': return 'orange';
-      case 'low': return 'green';
-      default: return 'default';
-    }
-  };
-
-  const pendingCount = approvals.filter(a => a.status === 'pending').length;
-  const underReviewCount = approvals.filter(a => a.status === 'under_review').length;
+  const pendingCount = pendingCustomers.length;
 
   const columns = [
     {
-      title: "Service Number",
-      dataIndex: "serviceNumber",
-      key: "serviceNumber",
-      width: 120,
-    },
-    {
-      title: "Customer",
-      dataIndex: "customerName",
-      key: "customerName",
-      width: 120,
-    },
-    {
-      title: "Service Type",
-      dataIndex: "serviceType",
-      key: "serviceType",
+      title: "Business Name",
+      dataIndex: "businessName",
+      key: "businessName",
       width: 150,
     },
     {
+      title: "Contact Person",
+      dataIndex: "contactPerson",
+      key: "contactPerson",
+      width: 120,
+    },
+    {
+      title: "Email",
+      dataIndex: "contactEmail",
+      key: "contactEmail",
+      width: 150,
+    },
+    {
+      title: "Phone",
+      dataIndex: "contactPhone",
+      key: "contactPhone",
+      width: 120,
+    },
+    {
+      title: "TIN Number",
+      dataIndex: "tinNumber",
+      key: "tinNumber",
+      width: 120,
+    },
+    {
       title: "Status",
-      dataIndex: "status",
-      key: "status",
-      width: 120,
-      render: (status: string) => (
-        <Tag color={getStatusColor(status)}>
-          {status.replace('_', ' ').toUpperCase()}
+      dataIndex: "isVerified",
+      key: "isVerified",
+      width: 100,
+      render: (isVerified: boolean) => (
+        <Tag color={getStatusColor(isVerified)}>
+          {isVerified ? 'VERIFIED' : 'PENDING'}
         </Tag>
       ),
     },
     {
-      title: "Priority",
-      dataIndex: "priority",
-      key: "priority",
-      width: 100,
-      render: (priority: string) => (
-        <Tag color={getPriorityColor(priority)}>
-          {priority.toUpperCase()}
-        </Tag>
-      ),
-    },
-    {
-      title: "Documents",
-      dataIndex: "documents",
-      key: "documents",
-      width: 100,
-      render: (count: number) => (
-        <Space>
-          <FileText size={16} />
-          {count}
-        </Space>
-      ),
-    },
-    {
-      title: "Assigned To",
-      dataIndex: "assignedTo",
-      key: "assignedTo",
-      width: 120,
-    },
-    {
-      title: "Submitted Date",
-      dataIndex: "submittedDate",
-      key: "submittedDate",
+      title: "Registered Date",
+      dataIndex: "registeredDate",
+      key: "registeredDate",
       width: 120,
       render: (date: string) => new Date(date).toLocaleDateString(),
     },
@@ -221,7 +117,7 @@ const PendingApprovalsPage = () => {
       title: "Actions",
       key: "actions",
       width: 200,
-      render: (_: any, record: PendingApproval) => (
+      render: (_: any, record: any) => (
         <Space size="middle">
           <Button
             icon={<Eye size={16} />}
@@ -229,7 +125,7 @@ const PendingApprovalsPage = () => {
           >
             View
           </Button>
-          {record.status === 'pending' && checkPermission(permissions, permission.motCustomer.approve) && (
+          {!record.isVerified && checkPermission(permissions, permission.motCustomer.approve) && (
             <>
               <Button
                 type="primary"
@@ -258,15 +154,15 @@ const PendingApprovalsPage = () => {
         <Clock size={24} className="text-orange-600" />
         <Typography.Title level={2} className="mb-0">
           Pending Approvals
-          <Badge count={pendingCount + underReviewCount} style={{ marginLeft: 8 }} />
+          <Badge count={pendingCount} style={{ marginLeft: 8 }} />
         </Typography.Title>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
         <Card>
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-gray-600">Pending</p>
+              <p className="text-gray-600">Pending Approvals</p>
               <p className="text-2xl font-bold text-orange-600">{pendingCount}</p>
             </div>
             <Clock className="text-orange-600" size={24} />
@@ -275,17 +171,8 @@ const PendingApprovalsPage = () => {
         <Card>
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-gray-600">Under Review</p>
-              <p className="text-2xl font-bold text-blue-600">{underReviewCount}</p>
-            </div>
-            <User className="text-blue-600" size={24} />
-          </div>
-        </Card>
-        <Card>
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-gray-600">Total</p>
-              <p className="text-2xl font-bold text-gray-600">{approvals.length}</p>
+              <p className="text-gray-600">Total Customers</p>
+              <p className="text-2xl font-bold text-gray-600">{pendingCount}</p>
             </div>
             <FileText className="text-gray-600" size={24} />
           </div>
@@ -294,7 +181,7 @@ const PendingApprovalsPage = () => {
 
       <Card bordered>
         <Table
-          dataSource={approvals}
+          dataSource={pendingCustomers}
           columns={columns}
           rowKey="id"
           loading={loading}
@@ -326,51 +213,52 @@ const PendingApprovalsPage = () => {
           <div className="space-y-4">
             <div className="grid grid-cols-2 gap-4">
               <div>
-                <strong>Service Number:</strong> {selectedApproval.serviceNumber}
+                <strong>Business Name:</strong> {selectedApproval.businessName}
               </div>
               <div>
-                <strong>Customer:</strong> {selectedApproval.customerName}
+                <strong>Contact Person:</strong> {selectedApproval.contactPerson}
               </div>
               <div>
-                <strong>Service Type:</strong> {selectedApproval.serviceType}
+                <strong>Email:</strong> {selectedApproval.contactEmail}
+              </div>
+              <div>
+                <strong>Phone:</strong> {selectedApproval.contactPhone}
+              </div>
+              <div>
+                <strong>TIN Number:</strong> {selectedApproval.tinNumber}
+              </div>
+              <div>
+                <strong>Business License:</strong> {selectedApproval.businessLicense}
               </div>
               <div>
                 <strong>Status:</strong> 
-                <Tag color={getStatusColor(selectedApproval.status)} className="ml-2">
-                  {selectedApproval.status.replace('_', ' ').toUpperCase()}
+                <Tag color={getStatusColor(selectedApproval.isVerified)} className="ml-2">
+                  {selectedApproval.isVerified ? 'VERIFIED' : 'PENDING'}
                 </Tag>
               </div>
               <div>
-                <strong>Priority:</strong> 
-                <Tag color={getPriorityColor(selectedApproval.priority)} className="ml-2">
-                  {selectedApproval.priority.toUpperCase()}
-                </Tag>
+                <strong>Registered Date:</strong> {new Date(selectedApproval.registeredDate).toLocaleString()}
               </div>
               <div>
-                <strong>Documents:</strong> {selectedApproval.documents}
+                <strong>Business Address:</strong> {selectedApproval.businessAddress}
               </div>
               <div>
-                <strong>Assigned To:</strong> {selectedApproval.assignedTo}
+                <strong>City:</strong> {selectedApproval.city}
               </div>
               <div>
-                <strong>Submitted Date:</strong> {new Date(selectedApproval.submittedDate).toLocaleString()}
+                <strong>State:</strong> {selectedApproval.state}
+              </div>
+              <div>
+                <strong>Postal Code:</strong> {selectedApproval.postalCode}
               </div>
             </div>
-            {selectedApproval.notes && (
-              <div>
-                <strong>Notes:</strong>
-                <div className="mt-2 p-3 bg-gray-50 rounded">
-                  {selectedApproval.notes}
-                </div>
-              </div>
-            )}
           </div>
         )}
       </Modal>
 
       {/* Action Modal */}
       <Modal
-        title={`${actionType === 'approve' ? 'Approve' : 'Reject'} Service Request`}
+        title={`${actionType === 'approve' ? 'Approve' : 'Reject'} Customer`}
         open={actionModalVisible}
         onCancel={() => setActionModalVisible(false)}
         footer={null}
@@ -393,7 +281,7 @@ const PendingApprovalsPage = () => {
           </Form.Item>
           <Form.Item>
             <Space>
-              <Button type="primary" htmlType="submit">
+              <Button type="primary" htmlType="submit" loading={loading}>
                 {actionType === 'approve' ? 'Approve' : 'Reject'}
               </Button>
               <Button onClick={() => setActionModalVisible(false)}>
@@ -408,6 +296,10 @@ const PendingApprovalsPage = () => {
 };
 
 export default PendingApprovalsPage;
+
+
+
+
 
 
 

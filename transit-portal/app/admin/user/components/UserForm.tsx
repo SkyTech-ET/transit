@@ -30,17 +30,11 @@ const UserForm = (props: UserFormProps) => {
 
     const handleSubmit = async (values: any) => {
         try {
-            console.log('🔍 DEBUG: UserForm - handleSubmit called with values:', values);
-            console.log('🔍 DEBUG: UserForm - Values type:', typeof values);
-            console.log('🔍 DEBUG: UserForm - Values keys:', Object.keys(values || {}));
-            
             // Values are passed from onFinish, but we can also validate if needed
             await formRef.current?.validateFields();
-            console.log('🔍 DEBUG: UserForm - Form validation passed');
-            
+           
             // Additional check for role selection
             if (!values.roles) {
-                console.log('🔍 DEBUG: UserForm - No role selected, preventing submission');
                 return;
             }
             
@@ -62,12 +56,6 @@ const UserForm = (props: UserFormProps) => {
             if (!props.isEdit && values.password) {
                 formData.Password = values.password;
             }
-            
-            console.log('🔍 DEBUG: Form values received:', values);
-            console.log('🔍 DEBUG: Form values type:', typeof values);
-            console.log('🔍 DEBUG: Form values keys:', Object.keys(values || {}));
-            console.log('🔍 DEBUG: Selected roles:', values.roles);
-            console.log('🔍 DEBUG: Transformed form data:', formData);
             
             // Handle organization ID safely - only set if organization exists
             if (isAdmin && currentUser?.organization?.id) {
@@ -91,13 +79,11 @@ const UserForm = (props: UserFormProps) => {
                     routeTo()
                 });
             } else {
-                console.log('🔍 DEBUG: UserForm - About to call addUser with formData:', formData);
+               
                 await addUser(formData).then((res) => {
-                    console.log('🔍 DEBUG: UserForm - addUser success:', res);
-                    routeTo()
+                  routeTo()
                 }).catch((error) => {
-                    console.log('🔍 DEBUG: UserForm - addUser error:', error);
-                });
+               });
             }
         } catch (errorInfo) {
             console.error('Failed:', errorInfo);
@@ -119,8 +105,7 @@ const UserForm = (props: UserFormProps) => {
 
     useEffect(() => {
         if (props.payload && Object.keys(props.payload).length > 0) {
-            console.log('🔍 DEBUG: UserForm - Setting form values from payload:', props.payload);
-            
+           
             // Map backend field names to form field names
             const formValues = {
                 firstName: props.payload.firstName,
@@ -131,7 +116,8 @@ const UserForm = (props: UserFormProps) => {
                 profileFile: props.payload.profilePhoto, // Backend returns 'profilePhoto', form expects 'profileFile'
                 isSuperAdmin: props.payload.isSuperAdmin,
                 recordStatus: props.payload.recordStatus,
-                roles: props.payload.userRoles && props.payload.userRoles.length > 0 ? props.payload.userRoles[0].roleId : null, // Map first userRole to single role ID
+                roles: Array.isArray(props.payload.userRoles) && props.payload.userRoles.length > 0 ? props.payload.userRoles[0].roleId  : null,// Map first userRole to single role ID
+
             };
             
             // For editing, set the existing profile photo as a file list for the Upload component
@@ -140,20 +126,15 @@ const UserForm = (props: UserFormProps) => {
                     uid: '-1',
                     name: 'existing-photo.jpg',
                     status: 'done',
-                    url: `https://localhost:5001/${props.payload.profilePhoto}`, // Construct full URL
+                    url: `https://localhost:5000/${props.payload.profilePhoto}`, // Construct full URL
                 }];
             }
             
-            console.log('🔍 DEBUG: UserForm - Mapped form values:', formValues);
-            console.log('🔍 DEBUG: UserForm - User roles from payload:', props.payload.userRoles);
-            console.log('🔍 DEBUG: UserForm - Mapped roles:', formValues.roles);
-            console.log('🔍 DEBUG: UserForm - Available roles:', roles);
-            form.setFieldsValue(formValues);
+         form.setFieldsValue(formValues);
             
             // Verify the form values were set correctly
             setTimeout(() => {
                 const currentFormValues = form.getFieldsValue();
-                console.log('🔍 DEBUG: UserForm - Current form values after setting:', currentFormValues);
             }, 100);
         }
     }, [props.payload!, form]);
@@ -166,12 +147,10 @@ const UserForm = (props: UserFormProps) => {
             name="Add/Edit"
             autoComplete="off"
             onFinish={(values) => {
-                console.log('🔍 DEBUG: Form onFinish triggered with values:', values);
-                handleSubmit(values);
+               handleSubmit(values);
             }}
             onFinishFailed={(errorInfo) => {
-                console.log('🔍 DEBUG: Form validation failed:', errorInfo);
-            }}
+           }}
             labelCol={{ span: 24 }}
             requiredMark={true}
         >
@@ -463,7 +442,7 @@ const UserForm = (props: UserFormProps) => {
                                 uid: '-1',
                                 name: 'existing-photo.jpg',
                                 status: 'done',
-                                url: `https://localhost:5001/${props.payload.profilePhoto}`,
+                                url: `https://localhost:5000/${props.payload.profilePhoto}`,
                             }] : []}
                         >
                             <div>
@@ -512,9 +491,7 @@ const UserForm = (props: UserFormProps) => {
                             block
                             style={{ width: "100%", height: "2.4rem" }}
                             onClick={() => {
-                                console.log('🔍 DEBUG: Submit button clicked');
-                                console.log('🔍 DEBUG: Form current values:', form.getFieldsValue());
-                            }}
+                           }}
                         >
                             {props.payload != null ? 'Save change' : 'Create'}
                         </Button>

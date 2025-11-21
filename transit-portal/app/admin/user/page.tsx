@@ -19,7 +19,6 @@ const UserPage = () => {
   const { listLoading: loading, currentPage, totalPages, filteredUsers, setSearchTerm, getUsers } = useUserStore();
 
   useEffect(() => { 
-    console.log('🔍 DEBUG: Users page mounted, calling getUsers...');
     getUsers(RecordStatus.Active) 
   }, [])
 
@@ -34,34 +33,27 @@ const UserPage = () => {
   };
 
   return (
-    <div className="flex flex-col gap-4 rounded-md bg-white py-6">
-      <UserPageHeader
-        canCreate={checkPermission(permissions, permission.user.create)}
+  <div className="flex flex-col gap-4 rounded-md bg-white py-6">
+    <UserPageHeader
+      canCreate={checkPermission(permissions, permission.user.create)}
+    />
+    <RecordStatusFilter status={status} onFilter={onFilter} />
+    <div className="border-b"></div>
+    <SearchFiled searchTerm={searchInput} onSearch={onSearch} placeholder="Search users..." />
+    <div className="px-5">
+      <UserTable
+        loading={loading}
+        users={filteredUsers}
+        currentPage={currentPage}
+        totalPages={totalPages}  
+        canUpdate={checkPermission(permissions, permission.user.update)}
+        canDelete={checkPermission(permissions, permission.user.delete)}
+        canReset={checkPermission(permissions, permission.password.resetPassword)}
+        searchTerm={searchInput}
       />
-      <RecordStatusFilter status={status} onFilter={onFilter} />
-      <div className="border-b"></div>
-      <SearchFiled searchTerm={searchInput} onSearch={onSearch} placeholder="Search users..." />
-      <div className="px-5">
-        {console.log('🔍 DEBUG: Rendering UserTable with:', {
-          loading,
-          usersCount: filteredUsers?.length || 0,
-          currentPage,
-          totalPages,
-          filteredUsers: filteredUsers
-        })}
-        <UserTable
-          loading={loading}
-          users={filteredUsers}
-          currentPage={currentPage}
-          totalPages={totalPages}  
-          canUpdate={checkPermission(permissions, permission.user.update)}
-          canDelete={checkPermission(permissions, permission.user.delete)}
-          canReset={checkPermission(permissions, permission.password.resetPassword)}
-          searchTerm={searchInput}
-        />
-      </div>
     </div>
-  );
+  </div>
+);
 };
 
 export default UserPage;

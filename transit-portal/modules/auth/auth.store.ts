@@ -30,10 +30,12 @@ const useAuthStore = create<AuthStore>((set) => ({
             firstName: res.firstName,
             phoneNumber: res.phoneNumber,
             organization: res.organization,
-            organizationId: res.organizationId
+            organizationId: res.organizationId,
+            recordStatus: res.recordStatus,
+            userRoles: res.userRoles,
+            isSuperAdmin: res.isSuperAdmin,
+            profilePhoto:res.profilePhoto
           }
-          console.log('🔍 DEBUG: Login response user data:', user);
-          console.log('🔍 DEBUG: User roles:', user.roles);
           setUserData(user)
           set({ user: user, loading: false, error: null });
           resolve(res)

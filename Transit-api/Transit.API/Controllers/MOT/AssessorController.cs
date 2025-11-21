@@ -5,6 +5,10 @@ using Transit.Domain.Models.Shared;
 using Microsoft.EntityFrameworkCore;
 using Transit.Controllers;
 using Transit.API.Helpers;
+using Transit.Application;
+using Transit.Api.Contracts.MOT.Request;
+using Transit.Api.Contracts.MOT.Response;
+using Mapster;
 
 namespace Transit.API.Controllers.MOT;
 
@@ -14,17 +18,19 @@ public class AssessorController : BaseController
 {
     private readonly ApplicationDbContext _context;
     private readonly IHttpContextAccessor _httpContextAccessor;
+    private readonly IMediator _mediator;
 
-    public AssessorController(ApplicationDbContext context, IHttpContextAccessor httpContextAccessor)
+    public AssessorController(ApplicationDbContext context, IHttpContextAccessor httpContextAccessor, IMediator mediator)
     {
         _context = context;
         _httpContextAccessor = httpContextAccessor;
+        _mediator = mediator;
     }
 
     /// <summary>
     /// Get customers pending approval
     /// </summary>
-    [HttpGet("customers/pending-approval")]
+    [HttpGet("GetPendingCustomerApprovals")]
     public async Task<IActionResult> GetPendingCustomerApprovals()
     {
         var currentUserId = JwtHelper.GetCurrentUserId(_httpContextAccessor, _context);
@@ -48,8 +54,8 @@ public class AssessorController : BaseController
     /// <summary>
     /// Approve or reject a customer
     /// </summary>
-    [HttpPut("customers/{customerId}/approve")]
-    public async Task<IActionResult> ApproveCustomer(long customerId, [FromBody] CustomerApprovalRequest request)
+    [HttpPut("ApproveCustomer")]
+    public async Task<IActionResult> ApproveCustomer([FromBody] CustomerApprovalRequest request)
     {
         var currentUserId = JwtHelper.GetCurrentUserId(_httpContextAccessor, _context);
         if (currentUserId == null)
@@ -58,32 +64,23 @@ public class AssessorController : BaseController
         if (!await IsAssessor(currentUserId.Value))
             return Forbid("Access denied. Assessor role required.");
 
-        var customer = await _context.Customers
-            .Include(c => c.User)
-            .FirstOrDefaultAsync(c => c.Id == customerId);
-
-        if (customer == null)
-            return NotFound("Customer not found");
-
-        if (request.IsApproved)
+        var command = new ApproveCustomerCommand
         {
-            customer.Verify(currentUserId.Value, request.Notes);
-        }
-        else
-        {
-            // Handle rejection - you might want to add a rejection status
-            customer.UpdateAudit("System");
-        }
+            CustomerId = request.CustomerId,
+            IsApproved = request.IsApproved,
+            Notes = request.Notes,
+            VerifiedByUserId = currentUserId.Value
+        };
 
-        await _context.SaveChangesAsync();
+        var result = await _mediator.Send(command);
 
-        return HandleSuccessResponse(customer);
+        return result.IsError ? HandleErrorResponse(result.Errors) : HandleSuccessResponse(result.Payload);
     }
 
     /// <summary>
     /// Get service requests pending review
     /// </summary>
-    [HttpGet("services/pending-review")]
+    [HttpGet("GetPendingServiceReviews")]
     public async Task<IActionResult> GetPendingServiceReviews()
     {
         var currentUserId = JwtHelper.GetCurrentUserId(_httpContextAccessor, _context);
@@ -107,8 +104,8 @@ public class AssessorController : BaseController
     /// <summary>
     /// Review and approve/reject a service request
     /// </summary>
-    [HttpPut("services/{serviceId}/review")]
-    public async Task<IActionResult> ReviewService(long serviceId, [FromBody] ServiceReviewRequest request)
+    [HttpPut("ReviewService")]
+    public async Task<IActionResult> ReviewService([FromBody] ServiceReviewRequest request)
     {
         var currentUserId = JwtHelper.GetCurrentUserId(_httpContextAccessor, _context);
         if (currentUserId == null)
@@ -118,7 +115,7 @@ public class AssessorController : BaseController
             return Forbid("Access denied. Assessor role required.");
 
         var service = await _context.Services
-            .FirstOrDefaultAsync(s => s.Id == serviceId);
+            .FirstOrDefaultAsync(s => s.Id == request.ServiceId);
 
         if (service == null)
             return NotFound("Service not found");
@@ -140,7 +137,7 @@ public class AssessorController : BaseController
                 "Service Review",
                 request.ReviewNotes,
                 MessageType.System,
-                serviceId,
+                request.ServiceId,
                 currentUserId.Value,
                 service.CreatedByDataEncoderId
             );
@@ -156,7 +153,7 @@ public class AssessorController : BaseController
     /// <summary>
     /// Get services under assessor oversight
     /// </summary>
-    [HttpGet("services/oversight")]
+    [HttpGet("GetServicesUnderOversight")]
     public async Task<IActionResult> GetServicesUnderOversight(
         [FromQuery] ServiceStatus? status = null,
         [FromQuery] ServiceType? type = null)
@@ -190,8 +187,8 @@ public class AssessorController : BaseController
     /// <summary>
     /// Add compliance feedback to a service
     /// </summary>
-    [HttpPost("services/{serviceId}/compliance-feedback")]
-    public async Task<IActionResult> AddComplianceFeedback(long serviceId, [FromBody] ComplianceFeedbackRequest request)
+    [HttpPost("AddComplianceFeedback")]
+    public async Task<IActionResult> AddComplianceFeedback([FromBody] ComplianceFeedbackRequest request)
     {
         var currentUserId = JwtHelper.GetCurrentUserId(_httpContextAccessor, _context);
         if (currentUserId == null)
@@ -201,7 +198,7 @@ public class AssessorController : BaseController
             return Forbid("Access denied. Assessor role required.");
 
         var service = await _context.Services
-            .FirstOrDefaultAsync(s => s.Id == serviceId);
+            .FirstOrDefaultAsync(s => s.Id == request.ServiceId);
 
         if (service == null)
             return NotFound("Service not found");
@@ -210,7 +207,7 @@ public class AssessorController : BaseController
             "Compliance Feedback",
             request.Feedback,
             MessageType.System,
-            serviceId,
+            request.ServiceId,
             currentUserId.Value,
             service.AssignedCaseExecutorId,
             null,
@@ -226,7 +223,7 @@ public class AssessorController : BaseController
     /// <summary>
     /// Get assessor dashboard
     /// </summary>
-    [HttpGet("dashboard")]
+    [HttpGet("GetDashboard")]
     public async Task<IActionResult> GetDashboard()
     {
         var currentUserId = JwtHelper.GetCurrentUserId(_httpContextAccessor, _context);
@@ -236,7 +233,7 @@ public class AssessorController : BaseController
         if (!await IsAssessor(currentUserId.Value))
             return Forbid("Access denied. Assessor role required.");
 
-        var dashboard = new AssessorDashboardResponse
+        var dashboard = new Transit.Api.Contracts.MOT.Response.AssessorDashboardResponse
         {
             PendingCustomerApprovals = await _context.Customers.CountAsync(c => !c.IsVerified && c.RecordStatus == RecordStatus.Active),
             PendingServiceReviews = await _context.Services.CountAsync(s => s.Status == ServiceStatus.Submitted),
@@ -266,7 +263,7 @@ public class AssessorController : BaseController
     /// <summary>
     /// Get compliance issues flagged
     /// </summary>
-    [HttpGet("compliance-issues")]
+    [HttpGet("GetComplianceIssues")]
     public async Task<IActionResult> GetComplianceIssues()
     {
         var currentUserId = JwtHelper.GetCurrentUserId(_httpContextAccessor, _context);
@@ -298,31 +295,4 @@ public class AssessorController : BaseController
 
         return user?.UserRoles.Any(ur => ur.Role.Name == "Assessor") ?? false;
     }
-}
-
-public class CustomerApprovalRequest
-{
-    public bool IsApproved { get; set; }
-    public string? Notes { get; set; }
-}
-
-public class ServiceReviewRequest
-{
-    public bool IsApproved { get; set; }
-    public string? ReviewNotes { get; set; }
-}
-
-public class ComplianceFeedbackRequest
-{
-    public string Feedback { get; set; } = string.Empty;
-}
-
-public class AssessorDashboardResponse
-{
-    public int PendingCustomerApprovals { get; set; }
-    public int PendingServiceReviews { get; set; }
-    public int ServicesUnderOversight { get; set; }
-    public int CompletedReviewsToday { get; set; }
-    public List<Customer> RecentCustomerApprovals { get; set; } = new();
-    public List<Service> RecentServiceReviews { get; set; } = new();
 }

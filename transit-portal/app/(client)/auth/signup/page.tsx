@@ -7,7 +7,8 @@ import useAuthStore from "@/modules/auth/auth.store";
 import { Alert, Button, Card, Form, Input } from "antd";
 import PhoneInput from "react-phone-input-2";
 
-import "react-phone-input-2/lib/style.css";
+import 'react-phone-input-2/lib/style.css';
+
 
 export default function SignUpPage() {
   const [form] = Form.useForm();

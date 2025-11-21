@@ -1,52 +1,79 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
-import { Card, Form, Input, Select, InputNumber, Button, message, Row, Col } from "antd";
-import { Save, ArrowLeft } from "lucide-react";
+import React, { useEffect, useState } from "react";
+import { Card, Form, Input, Select, InputNumber, Button, message, Row, Col, Upload, Space } from "antd";
+import { Save, ArrowLeft, Upload as UploadIcon } from "lucide-react";
 import { useServiceStore, ServiceType, RiskLevel } from "@/modules/mot/service";
-import { useUserStore } from "@/modules/user";
-import { usePermissionStore } from "@/modules/utils/permission/permission.store";
+import { useCustomerStore } from "@/modules/mot/customer";
 import { useRouter } from "next/navigation";
+import { usePermissionStore } from "@/modules/utils";
 
 const { Option } = Select;
 const { TextArea } = Input;
 
-const CustomerCreateServicePage = () => {
+const CreateCustomerServicePage = () => {
   const router = useRouter();
   const { createCustomerService, loading } = useServiceStore();
+  const { currentCustomer, getCustomerById } = useCustomerStore();
   const { currentUser } = usePermissionStore();
   const [form] = Form.useForm();
+  const [fileList, setFileList] = useState<any[]>([]);
+
+  useEffect(() => {
+    // If user is a customer, get their customer record
+    if (currentUser?.id) {
+      // Try to get customer by user ID
+      // This assumes customer.userId matches currentUser.id
+      // You may need to adjust based on your data structure
+    }
+  }, [currentUser]);
 
   const handleSubmit = async (values: any) => {
     try {
-      // Remove customerId from the payload since the backend will automatically set it
-      const serviceData = {
-        serviceNumber: `SRV-${Date.now()}`, // Generate a unique service number
-        itemDescription: values.itemDescription,
-        routeCategory: values.routeCategory,
-        declaredValue: values.declaredValue,
-        taxCategory: values.taxCategory,
-        countryOfOrigin: values.countryOfOrigin,
-        serviceType: values.serviceType,
-        riskLevel: values.riskLevel,
-        customerId: currentUser?.id || 0, // Use current user as customer
-        priority: values.priority,
-        specialInstructions: values.specialInstructions
-      };
-      
-      console.log('🔍 DEBUG: Customer creating service with data:', serviceData);
-      
-      await createCustomerService(serviceData);
+      // Generate service number if not provided
+      if (!values.serviceNumber) {
+        const timestamp = Date.now();
+        values.serviceNumber = `SRV-${timestamp}`;
+      }
+
+      // Set customer ID from current user's customer record
+      if (currentCustomer) {
+        values.customerId = currentCustomer.id;
+      } else if (currentUser?.id) {
+        // Fallback: use user ID if customer record not found
+        // You may need to adjust this based on your data structure
+        values.customerId = currentUser.id;
+      }
+
+      await createCustomerService(values);
       message.success("Service request created successfully");
       router.push("/admin/mot/customers/services");
-    } catch (error) {
-      console.error('🔍 DEBUG: Error creating service:', error);
-      message.error("Failed to create service request");
+    } catch (error: any) {
+      message.error(error.message || "Failed to create service request");
     }
   };
 
   const handleCancel = () => {
     router.push("/admin/mot/customers/services");
+  };
+
+  const handleFileChange = (info: any) => {
+    setFileList(info.fileList);
+  };
+
+  const beforeUpload = (file: File) => {
+    const isPDF = file.type === 'application/pdf';
+    const isImage = file.type.startsWith('image/');
+    if (!isPDF && !isImage) {
+      message.error('You can only upload PDF or image files!');
+      return false;
+    }
+    const isLt10M = file.size / 1024 / 1024 < 10;
+    if (!isLt10M) {
+      message.error('File must be smaller than 10MB!');
+      return false;
+    }
+    return false; // Prevent auto upload
   };
 
   return (
@@ -58,27 +85,31 @@ const CustomerCreateServicePage = () => {
               className="cursor-pointer" 
               onClick={handleCancel}
             />
-            <span>Create New Service Request</span>
+            <span>Create Service Request</span>
           </div>
         }
       >
-        <div className="mb-4 p-4 bg-blue-50 rounded-lg">
-          <p className="text-blue-800">
-            <strong>Customer:</strong> {currentUser?.firstName} {currentUser?.lastName} ({currentUser?.email})
-          </p>
-          <p className="text-sm text-blue-600 mt-1">
-            This service will be automatically associated with your customer account.
-          </p>
-        </div>
-
         <Form
           form={form}
           layout="vertical"
           onFinish={handleSubmit}
           className="max-w-4xl"
+          initialValues={{
+            serviceType: ServiceType.Multimodal,
+            riskLevel: RiskLevel.Green,
+          }}
         >
           <Row gutter={16}>
-            <Col span={24}>
+            <Col span={12}>
+              <Form.Item
+                name="serviceNumber"
+                label="Service Number"
+                tooltip="Leave empty to auto-generate"
+              >
+                <Input placeholder="Auto-generated if left empty" />
+              </Form.Item>
+            </Col>
+            <Col span={12}>
               <Form.Item
                 name="serviceType"
                 label="Service Type"
@@ -104,7 +135,7 @@ const CustomerCreateServicePage = () => {
                 label="Item Description"
                 rules={[{ required: true, message: "Please enter item description" }]}
               >
-                <TextArea rows={3} placeholder="Enter detailed item description" />
+                <TextArea rows={4} placeholder="Enter detailed description of items to be transported" />
               </Form.Item>
             </Col>
           </Row>
@@ -116,7 +147,13 @@ const CustomerCreateServicePage = () => {
                 label="Route Category"
                 rules={[{ required: true, message: "Please enter route category" }]}
               >
-                <Input placeholder="Enter route category" />
+                <Select placeholder="Select route category">
+                  <Option value="Air Freight">Air Freight</Option>
+                  <Option value="Sea Freight">Sea Freight</Option>
+                  <Option value="Road Transport">Road Transport</Option>
+                  <Option value="Rail Transport">Rail Transport</Option>
+                  <Option value="Multimodal">Multimodal</Option>
+                </Select>
               </Form.Item>
             </Col>
             <Col span={12}>
@@ -134,7 +171,7 @@ const CustomerCreateServicePage = () => {
             <Col span={12}>
               <Form.Item
                 name="declaredValue"
-                label="Declared Value"
+                label="Declared Value (USD)"
                 rules={[{ required: true, message: "Please enter declared value" }]}
               >
                 <InputNumber
@@ -142,6 +179,7 @@ const CustomerCreateServicePage = () => {
                   placeholder="Enter declared value"
                   formatter={value => `$ ${value}`.replace(/\B(?=(\d{3})+(?!\d))/g, ',')}
                   parser={value => value!.replace(/\$\s?|(,*)/g, '')}
+                  min={0}
                 />
               </Form.Item>
             </Col>
@@ -151,7 +189,12 @@ const CustomerCreateServicePage = () => {
                 label="Tax Category"
                 rules={[{ required: true, message: "Please enter tax category" }]}
               >
-                <Input placeholder="Enter tax category" />
+                <Select placeholder="Select tax category">
+                  <Option value="Standard">Standard</Option>
+                  <Option value="Exempt">Exempt</Option>
+                  <Option value="Reduced">Reduced</Option>
+                  <Option value="Zero">Zero</Option>
+                </Select>
               </Form.Item>
             </Col>
           </Row>
@@ -174,20 +217,6 @@ const CustomerCreateServicePage = () => {
                 </Select>
               </Form.Item>
             </Col>
-            <Col span={12}>
-              <Form.Item
-                name="priority"
-                label="Priority"
-                rules={[{ required: true, message: "Please select priority" }]}
-              >
-                <Select placeholder="Select priority">
-                  <Option value="Low">Low</Option>
-                  <Option value="Medium">Medium</Option>
-                  <Option value="High">High</Option>
-                  <Option value="Urgent">Urgent</Option>
-                </Select>
-              </Form.Item>
-            </Col>
           </Row>
 
           <Row gutter={16}>
@@ -196,7 +225,29 @@ const CustomerCreateServicePage = () => {
                 name="specialInstructions"
                 label="Special Instructions"
               >
-                <TextArea rows={2} placeholder="Any special instructions or requirements" />
+                <TextArea rows={3} placeholder="Any special instructions or requirements" />
+              </Form.Item>
+            </Col>
+          </Row>
+
+          <Row gutter={16}>
+            <Col span={24}>
+              <Form.Item
+                label="Supporting Documents"
+                tooltip="Upload relevant documents (invoices, certificates, etc.)"
+              >
+                <Upload
+                  fileList={fileList}
+                  onChange={handleFileChange}
+                  beforeUpload={beforeUpload}
+                  multiple
+                  accept=".pdf,.jpg,.jpeg,.png"
+                >
+                  <Button icon={<UploadIcon />}>Select Files</Button>
+                </Upload>
+                <div className="text-sm text-gray-500 mt-2">
+                  Accepted formats: PDF, JPG, PNG (Max 10MB per file)
+                </div>
               </Form.Item>
             </Col>
           </Row>
@@ -211,7 +262,7 @@ const CustomerCreateServicePage = () => {
               loading={loading}
               icon={<Save />}
             >
-              Create Service Request
+              Submit Service Request
             </Button>
           </div>
         </Form>
@@ -220,4 +271,4 @@ const CustomerCreateServicePage = () => {
   );
 };
 
-export default CustomerCreateServicePage;
+export default CreateCustomerServicePage;

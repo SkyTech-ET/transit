@@ -19,7 +19,6 @@ export interface IVendor {
   numberOfUsers: number
   managerialEmailAddress: string | null
   subscriptionPackages: ISubscriptionPackage[]
-  accountStatus:number;
   invoiceColumnNames: string
   subscriptions: ISubscriptionPackage[]
   tags: ITag[]

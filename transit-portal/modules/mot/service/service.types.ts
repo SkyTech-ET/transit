@@ -126,6 +126,8 @@ export interface IServiceActions {
   assignService: (id: number, userId: number, role: 'caseExecutor' | 'assessor') => Promise<void>;
   getServiceStages: (serviceId: number) => Promise<void>;
   updateStageStatus: (stageId: number, status: StageStatus, notes?: string) => Promise<void>;
+  getMyServices: (status?: number) => Promise<void>;
+  getServiceDetails: (serviceId: number) => Promise<void>;
   setLoading: (loading: boolean) => void;
   setError: (error: string | null) => void;
   setCurrentService: (service: IService | null) => void;

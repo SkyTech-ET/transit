@@ -290,7 +290,12 @@ const useServiceStore = create<IServiceState & IServiceActions>((set, get) => ({
   updateStageStatus: async (stageId: number, status: StageStatus, notes?: string) => {
     set({ loading: true, error: null });
     try {
-      const response = await updateStageStatus(stageId, status, notes);
+      const currentService = get().currentService;
+      if (!currentService) {
+        throw new Error('No service selected');
+      }
+      
+      const response = await updateStageStatus(currentService.id, stageId, status, notes);
       if (response?.data?.isError) {
         throw new Error(response.data.message || 'Failed to update stage status');
       }
@@ -301,10 +306,7 @@ const useServiceStore = create<IServiceState & IServiceActions>((set, get) => ({
       });
       
       // Refresh service stages
-      const currentService = get().currentService;
-      if (currentService) {
-        await get().getServiceStages(currentService.id);
-      }
+      await get().getServiceStages(currentService.id);
       set({ loading: false });
     } catch (error: any) {
       set({ 
@@ -314,6 +316,52 @@ const useServiceStore = create<IServiceState & IServiceActions>((set, get) => ({
       notification.error({
         message: 'Error',
         description: error.message || 'Failed to update stage status',
+      });
+    }
+  },
+
+  getMyServices: async (status?: number) => {
+    set({ loading: true, error: null });
+    try {
+      const response = await getMyServices(status);
+      if (response?.data?.isError) {
+        throw new Error(response.data.message || 'Failed to fetch my services');
+      }
+      
+      set({ 
+        services: response?.data?.payload || [],
+        loading: false 
+      });
+    } catch (error: any) {
+      set({ 
+        loading: false, 
+        error: error.message || 'Failed to fetch my services',
+        services: []
+      });
+      console.warn('Failed to fetch my services:', error.message);
+    }
+  },
+
+  getServiceDetails: async (serviceId: number) => {
+    set({ loading: true, error: null });
+    try {
+      const response = await getServiceDetails(serviceId);
+      if (response?.data?.isError) {
+        throw new Error(response.data.message || 'Failed to fetch service details');
+      }
+      
+      set({ 
+        currentService: response?.data?.payload,
+        loading: false 
+      });
+    } catch (error: any) {
+      set({ 
+        loading: false, 
+        error: error.message || 'Failed to fetch service details' 
+      });
+      notification.error({
+        message: 'Error',
+        description: error.message || 'Failed to fetch service details',
       });
     }
   },
