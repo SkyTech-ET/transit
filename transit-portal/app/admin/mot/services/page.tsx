@@ -102,12 +102,12 @@ const ServicesPage = () => {
       dataIndex: "serviceNumber",
       key: "serviceNumber",
     },
-    {
+    /* {
       title: "Item Description",
       dataIndex: "itemDescription",
       key: "itemDescription",
       ellipsis: true,
-    },
+    }, */
     {
       title: "Service Type",
       dataIndex: "serviceType",
@@ -128,7 +128,7 @@ const ServicesPage = () => {
         </Tag>
       ),
     },
-    {
+    /* {
       title: "Risk Level",
       dataIndex: "riskLevel",
       key: "riskLevel",
@@ -143,7 +143,7 @@ const ServicesPage = () => {
       dataIndex: "declaredValue",
       key: "declaredValue",
       render: (value: number) => `$${value.toLocaleString()}`,
-    },
+    }, */
     {
       title: "Customer",
       dataIndex: ["customer", "firstName"],
@@ -151,7 +151,7 @@ const ServicesPage = () => {
       render: (firstName: string, record: any) => 
         `${firstName} ${record.customer?.lastName || ''}`,
     },
-    {
+    /* {
       title: "Actions",
       key: "actions",
       render: (_: any, record: any) => (
@@ -186,7 +186,7 @@ const ServicesPage = () => {
           )}
         </Space>
       ),
-    },
+    }, */
   ];
 
   return (
@@ -194,8 +194,8 @@ const ServicesPage = () => {
       <Card
         title={
           <div className="flex items-center gap-2">
-            <Truck size={20} />
-            <span>MOT Services Management</span>
+            
+            <span>All Services Requests</span>
           </div>
         }
         extra={

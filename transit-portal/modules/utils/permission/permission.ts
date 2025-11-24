@@ -185,7 +185,8 @@ const permission = {
         manager: "Dashboard-Manager",
         assessor: "Dashboard-Assessor",
         caseExecutor: "Dashboard-CaseExecutor",
-        dataEncoder: "Dashboard-DataEncoder"
+        dataEncoder: "Dashboard-DataEncoder",
+        customers: "Dashboard-Customer"
     }
 
 }

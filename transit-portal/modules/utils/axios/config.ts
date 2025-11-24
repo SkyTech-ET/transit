@@ -14,16 +14,16 @@ const config: {
    */
   base_url: {
     // base url
-    base: "https://localhost:5001/api/v1",
+    base: "https://localhost:5000/api/v1",
 
     // dev url
-    dev: "http://localhost:5001/api/v1",
+    dev: "http://localhost:5000/api/v1",
 
     // prod url
     pro: "https://api.transit.com/api/v1",
 
     // test url
-    test: "http://localhost:5001/api/v1",
+    test: "http://localhost:5000/api/v1",
   },
 
   /**

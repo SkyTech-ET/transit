@@ -236,12 +236,12 @@ const ManagerDashboard = () => {
 
   return (
     <div className="p-6">
-      <div className="mb-6">
+      {/* <div className="mb-6">
         <Typography.Title level={2}>Manager Dashboard</Typography.Title>
         <Typography.Text type="secondary">
           Overview of MOT system performance and team activities
         </Typography.Text>
-      </div>
+      </div> */}
 
       {/* Key Metrics */}
       <Row gutter={[16, 16]} className="mb-6">
@@ -321,7 +321,7 @@ const ManagerDashboard = () => {
       </Row>
 
       <Row gutter={[16, 16]}>
-        {/* Team Performance */}
+        
         <Col xs={24} lg={16}>
           <Card title="Team Performance" className="h-full">
             <Table
@@ -334,7 +334,6 @@ const ManagerDashboard = () => {
           </Card>
         </Col>
 
-        {/* Recent Activities */}
         <Col xs={24} lg={8}>
           <Card title="Recent Activities" className="h-full">
             <List

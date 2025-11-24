@@ -96,7 +96,7 @@ const CreateServicePage = () => {
 
           <Row gutter={16}>
             <Col span={12}>
-              <Form.Item
+              {/* <Form.Item
                 name="routeCategory"
                 label="Route Category"
                 rules={[{ required: true, message: "Please enter route category" }]}
@@ -111,13 +111,13 @@ const CreateServicePage = () => {
                 rules={[{ required: true, message: "Please enter country of origin" }]}
               >
                 <Input placeholder="Enter country of origin" />
-              </Form.Item>
+              </Form.Item> */}
             </Col>
           </Row>
 
           <Row gutter={16}>
             <Col span={12}>
-              <Form.Item
+              {/* <Form.Item
                 name="declaredValue"
                 label="Declared Value"
                 rules={[{ required: true, message: "Please enter declared value" }]}
@@ -128,7 +128,7 @@ const CreateServicePage = () => {
                   formatter={value => `$ ${value}`.replace(/\B(?=(\d{3})+(?!\d))/g, ',')}
                   parser={value => value!.replace(/\$\s?|(,*)/g, '')}
                 />
-              </Form.Item>
+              </Form.Item> */}
             </Col>
             <Col span={12}>
               <Form.Item

@@ -1,3 +1,4 @@
 export const reportRoutes = Object.freeze({
-  dashboard: "/admin/dashboard",
+  dashboard: "/admin/mot/manager/dashboard",
+  ClientDashboard: "/client/dashboard"
 });

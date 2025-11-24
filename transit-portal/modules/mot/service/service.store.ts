@@ -34,33 +34,49 @@ const useServiceStore = create<IServiceState & IServiceActions>((set, get) => ({
   currentPage: 1,
   pageSize: 10,
 
+  
+
   // Actions
-  getAllServices: async (filters?: IServiceFilters) => {
-    set({ loading: true, error: null });
-    try {
-      const response = await getAllServices(filters);
-      if (response?.data?.isError) {
-        throw new Error(response.data.message || 'Failed to fetch services');
-      }
-      
-      set({ 
-        services: response?.data?.payload || [],
-        totalCount: response?.data?.totalCount || 0,
-        currentPage: filters?.page || 1,
-        pageSize: filters?.pageSize || 10,
-        loading: false 
-      });
-    } catch (error: any) {
-      set({ 
-        loading: false, 
-        error: error.message || 'Failed to fetch services',
-        services: [], // Set empty array on error
-        totalCount: 0
-      });
-      // Don't show notification for empty data, just log the error
-      console.warn('Failed to fetch services:', error.message);
-    }
-  },
+  getAllServices: async () => {
+  set({ loading: true, error: null });
+
+  try {
+    const raw = await getAllServices();
+    const array = Array.isArray(raw) ? raw : [];
+
+    const services = array.map((s) => ({
+      ...s,
+      serviceType: s.serviceType === 1 ? "Multimodal" : "Unimodal",
+      status:
+        s.status === 0 ? "Draft" :
+        s.status === 1 ? "NotStarted" :
+        s.status === 2 ? "Pending" :
+        s.status === 3 ? "Completed" :
+        "Draft",
+      riskLevel:
+        s.riskLevel === 0 ? "Blue" :
+        s.riskLevel === 1 ? "Yellow" :
+        "Red",
+    }));
+
+    set({
+      services,
+      totalCount: services.length,
+      loading: false
+    });
+
+  } catch (error: any) {
+    console.error("Failed to load services:", error);
+
+    set({
+      services: [],
+      error: error.message || "Failed to load services",
+      loading: false
+    });
+  }
+},
+
+
 
   getServiceById: async (id: number) => {
     set({ loading: true, error: null });

@@ -83,6 +83,7 @@ const MOTDashboard = () => {
       [ServiceStatus.Completed]: 'success',
       [ServiceStatus.Rejected]: 'error',
       [ServiceStatus.Cancelled]: 'default',
+      [ServiceStatus.Pending]: 'pending',
     };
     return colors[status] || 'default';
   };

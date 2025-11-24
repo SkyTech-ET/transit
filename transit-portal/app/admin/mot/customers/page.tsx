@@ -7,6 +7,8 @@ import { useUserStore } from "@/modules/user";
 import { usePermissionStore } from "@/modules/utils/permission/permission.store";
 import { useRouter } from "next/navigation";
 import { customerRoutes } from "@/modules/mot/customer";
+import useCustomerStore from "@/modules/mot/customer/customer.store";
+
 
 const CustomersPage = () => {
   const router = useRouter();
@@ -153,7 +155,7 @@ const CustomersPage = () => {
             <div className="flex items-center gap-2">
               <Users size={20} />
               <span>
-                {isCurrentUserCustomer ? "My Customer Dashboard" : "MOT Customer Roles Management"}
+                {isCurrentUserCustomer ? "My Customer Dashboard" : "Customer Management"}
               </span>
             </div>
           }

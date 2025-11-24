@@ -9,6 +9,7 @@ export interface IService {
   recordStatus:   number;
   organizationId: number;
   userId:number;
+  
 }
 
 

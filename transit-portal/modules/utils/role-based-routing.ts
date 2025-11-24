@@ -41,6 +41,11 @@ export const ROLE_ROUTES: RoleRoute[] = [
     roleName: "Customer",
     route: "/admin/mot/customers",
     description: "Customer Dashboard"
+  },
+  {
+    roleName: "Customers",
+    route: "/client/dashboard",
+    description: "Customer Dashboard"
   }
 ];
 

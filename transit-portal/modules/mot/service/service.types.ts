@@ -158,7 +158,8 @@ export enum ServiceStatus {
   InProgress = 5,
   Completed = 6,
   Rejected = 7,
-  Cancelled = 8
+  Cancelled = 8,
+  Pending = 9
 }
 
 export enum ServiceStage {
@@ -172,7 +173,9 @@ export enum ServiceStage {
   Clearance = 8,
   LocalPermission = 9,
   Arrival = 10,
-  StoreSettlement = 11
+  StoreSettlement = 11,
+  Settlement = 12,
+  FinalStage = 13
 }
 
 export enum StageStatus {
