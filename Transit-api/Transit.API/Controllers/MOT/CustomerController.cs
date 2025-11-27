@@ -5,6 +5,9 @@ using Transit.Domain.Models.Shared;
 using Microsoft.EntityFrameworkCore;
 using Transit.Controllers;
 using Transit.API.Helpers;
+using Transit.Application;
+using Transit.Api.Contracts.MOT.Request;
+using Transit.Api.Contracts.MOT.Response;
 using Mapster;
 
 namespace Transit.API.Controllers.MOT;
@@ -22,11 +25,11 @@ public class CustomerController : BaseController
         _httpContextAccessor = httpContextAccessor;
     }
 
-      /// <summary>
+    /// <summary>
     /// Create a new service request as a customer
     /// </summary>
-    [HttpPost("services")]
-    public async Task<IActionResult> CreateServiceRequest([FromBody] CreateCustomerServiceRequest request)
+    [HttpPost("CreateService")]
+    public async Task<IActionResult> CreateService([FromBody] CreateCustomerServiceRequest request)
     {
         var currentUserId = JwtHelper.GetCurrentUserId(_httpContextAccessor, _context);
         if (currentUserId == null)
@@ -40,34 +43,19 @@ public class CustomerController : BaseController
         if (customer == null)
             return BadRequest("Customer not found or not verified");
 
-        // Generate service number
-        var serviceNumber = $"SRV-{DateTime.UtcNow:yyyyMMdd}-{Guid.NewGuid().ToString("N")[..8].ToUpper()}";
+        var command = request.Adapt<CreateServiceRequestCommand>();
+        command.CustomerId = customer.Id;
+        command.CreatedByUserId = currentUserId.Value;
 
-        var service = Service.Create(
-            serviceNumber,
-            request.ItemDescription,
-            request.RouteCategory,
-            request.DeclaredValue,
-            request.TaxCategory,
-            request.CountryOfOrigin,
-            request.ServiceType,
-            customer.Id, // Use customer ID, not user ID
-            currentUserId.Value // Use current user as the creator
-        );
+        var result = await _mediator.Send(command);
 
-        _context.Services.Add(service);
-        await _context.SaveChangesAsync();
-
-        // Create initial service stages based on service type
-        await CreateServiceStages(service.Id, request.ServiceType);
-
-        return HandleSuccessResponse(service);
+        return result.IsError ? HandleErrorResponse(result.Errors) : HandleSuccessResponse(result.Payload);
     }
 
     /// <summary>
     /// Get all services for the current customer
     /// </summary>
-    [HttpGet("services")]
+    [HttpGet("GetMyServices")]
     public async Task<IActionResult> GetMyServices([FromQuery] ServiceStatus? status = null)
     {
         var currentUserId = JwtHelper.GetCurrentUserId(_httpContextAccessor, _context);
@@ -97,8 +85,8 @@ public class CustomerController : BaseController
     /// <summary>
     /// Get service details with full workflow timeline
     /// </summary>
-    [HttpGet("services/{serviceId}")]
-    public async Task<IActionResult> GetServiceDetails(long serviceId)
+    [HttpGet("GetServiceById")]
+    public async Task<IActionResult> GetServiceById([FromQuery] long serviceId)
     {
         var currentUserId = JwtHelper.GetCurrentUserId(_httpContextAccessor, _context);
         if (currentUserId == null)
@@ -130,8 +118,12 @@ public class CustomerController : BaseController
     /// <summary>
     /// Upload document for a service stage
     /// </summary>
-    [HttpPost("services/{serviceId}/stages/{stageId}/documents")]
-    public async Task<IActionResult> UploadStageDocument(long serviceId, long stageId, IFormFile file, [FromForm] DocumentType documentType)
+    [HttpPost("UploadStageDocument")]
+    public async Task<IActionResult> UploadStageDocument(
+        [FromForm] long serviceId,
+        [FromForm] long stageId,
+        [FromForm] IFormFile file,
+        [FromForm] DocumentType documentType)
     {
         var currentUserId = JwtHelper.GetCurrentUserId(_httpContextAccessor, _context);
         if (currentUserId == null)
@@ -187,7 +179,7 @@ public class CustomerController : BaseController
     /// <summary>
     /// Get customer notifications
     /// </summary>
-    [HttpGet("notifications")]
+    [HttpGet("GetNotifications")]
     public async Task<IActionResult> GetNotifications([FromQuery] bool unreadOnly = false)
     {
         var currentUserId = JwtHelper.GetCurrentUserId(_httpContextAccessor, _context);
@@ -211,8 +203,8 @@ public class CustomerController : BaseController
     /// <summary>
     /// Mark notification as read
     /// </summary>
-    [HttpPut("notifications/{notificationId}/read")]
-    public async Task<IActionResult> MarkNotificationAsRead(long notificationId)
+    [HttpPut("MarkNotificationAsRead")]
+    public async Task<IActionResult> MarkNotificationAsRead([FromQuery] long notificationId)
     {
         var currentUserId = JwtHelper.GetCurrentUserId(_httpContextAccessor, _context);
         if (currentUserId == null)
@@ -233,7 +225,7 @@ public class CustomerController : BaseController
     /// <summary>
     /// Get customer profile information
     /// </summary>
-    [HttpGet("profile")]
+    [HttpGet("GetProfile")]
     public async Task<IActionResult> GetProfile()
     {
         var currentUserId = JwtHelper.GetCurrentUserId(_httpContextAccessor, _context);
@@ -254,7 +246,7 @@ public class CustomerController : BaseController
     /// <summary>
     /// Update customer profile
     /// </summary>
-    [HttpPut("profile")]
+    [HttpPut("UpdateProfile")]
     public async Task<IActionResult> UpdateProfile([FromBody] UpdateCustomerProfileRequest request)
     {
         var currentUserId = JwtHelper.GetCurrentUserId(_httpContextAccessor, _context);
@@ -326,32 +318,4 @@ public class CustomerController : BaseController
         _context.ServiceStages.AddRange(stages);
         await _context.SaveChangesAsync();
     }
-
-}
-
-public class CreateCustomerServiceRequest
-{
-    public string ItemDescription { get; set; } = string.Empty;
-    public string RouteCategory { get; set; } = string.Empty;
-    public decimal DeclaredValue { get; set; }
-    public string TaxCategory { get; set; } = string.Empty;
-    public string CountryOfOrigin { get; set; } = string.Empty;
-    public ServiceType ServiceType { get; set; }
-    public RiskLevel RiskLevel { get; set; } = RiskLevel.Blue;
-    public string Priority { get; set; } = "Medium";
-    public string SpecialInstructions { get; set; } = string.Empty;
-}
-
-
-
-public class UpdateCustomerProfileRequest
-{
-    public string BusinessName { get; set; } = string.Empty;
-    public string BusinessAddress { get; set; } = string.Empty;
-    public string City { get; set; } = string.Empty;
-    public string State { get; set; } = string.Empty;
-    public string PostalCode { get; set; } = string.Empty;
-    public string ContactPerson { get; set; } = string.Empty;
-    public string ContactPhone { get; set; } = string.Empty;
-    public string ContactEmail { get; set; } = string.Empty;
 }

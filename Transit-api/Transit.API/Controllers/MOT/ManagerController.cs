@@ -5,6 +5,10 @@ using Transit.Domain.Models.Shared;
 using Microsoft.EntityFrameworkCore;
 using Transit.Controllers;
 using Transit.API.Helpers;
+using Transit.Application;
+using Transit.Api.Contracts.MOT.Request;
+using Transit.Api.Contracts.MOT.Response;
+using Mapster;
 
 namespace Transit.API.Controllers.MOT;
 
@@ -14,17 +18,19 @@ public class ManagerController : BaseController
 {
     private readonly ApplicationDbContext _context;
     private readonly IHttpContextAccessor _httpContextAccessor;
+    private readonly IMediator _mediator;
 
-    public ManagerController(ApplicationDbContext context, IHttpContextAccessor httpContextAccessor)
+    public ManagerController(ApplicationDbContext context, IHttpContextAccessor httpContextAccessor, IMediator mediator)
     {
         _context = context;
         _httpContextAccessor = httpContextAccessor;
+        _mediator = mediator;
     }
 
     /// <summary>
     /// Get dashboard analytics and key metrics
     /// </summary>
-    [HttpGet("dashboard")]
+    [HttpGet("GetDashboard")]
     public async Task<IActionResult> GetDashboard()
     {
         var currentUserId = JwtHelper.GetCurrentUserId(_httpContextAccessor, _context);
@@ -35,7 +41,7 @@ public class ManagerController : BaseController
         if (!await IsManager(currentUserId.Value))
             return Forbid("Access denied. Manager role required.");
 
-        var dashboard = new ManagerDashboardResponse
+        var dashboard = new Transit.Api.Contracts.MOT.Response.ManagerDashboardResponse
         {
             TotalServices = await _context.Services.CountAsync(),
             PendingServices = await _context.Services.CountAsync(s => s.Status == ServiceStatus.Submitted),
@@ -80,7 +86,7 @@ public class ManagerController : BaseController
     /// <summary>
     /// Get all services with filtering options
     /// </summary>
-    [HttpGet("services")]
+    [HttpGet("GetAllServices")]
     public async Task<IActionResult> GetAllServices(
         [FromQuery] ServiceStatus? status = null,
         [FromQuery] ServiceType? type = null,
@@ -122,7 +128,7 @@ public class ManagerController : BaseController
             .Take(pageSize)
             .ToListAsync();
 
-        var result = new PaginatedResult<Service>
+        var result = new Transit.Api.Contracts.MOT.Response.PaginatedResult<Service>
         {
             Data = services,
             TotalCount = totalCount,
@@ -137,8 +143,8 @@ public class ManagerController : BaseController
     /// <summary>
     /// Get service details for management oversight
     /// </summary>
-    [HttpGet("services/{serviceId}")]
-    public async Task<IActionResult> GetServiceDetails(long serviceId)
+    [HttpGet("GetServiceById")]
+    public async Task<IActionResult> GetServiceById([FromQuery] long serviceId)
     {
         var currentUserId = JwtHelper.GetCurrentUserId(_httpContextAccessor, _context);
         if (currentUserId == null)
@@ -169,8 +175,8 @@ public class ManagerController : BaseController
     /// <summary>
     /// Assign case executor to a service
     /// </summary>
-    [HttpPut("services/{serviceId}/assign-executor")]
-    public async Task<IActionResult> AssignCaseExecutor(long serviceId, [FromBody] AssignExecutorRequest request)
+    [HttpPut("AssignExecutor")]
+    public async Task<IActionResult> AssignExecutor([FromBody] AssignExecutorRequest request)
     {
         var currentUserId = JwtHelper.GetCurrentUserId(_httpContextAccessor, _context);
         if (currentUserId == null)
@@ -179,35 +185,24 @@ public class ManagerController : BaseController
         if (!await IsManager(currentUserId.Value))
             return Forbid("Access denied. Manager role required.");
 
-        var service = await _context.Services
-            .FirstOrDefaultAsync(s => s.Id == serviceId);
+        var command = new AssignServiceCommand
+        {
+            ServiceId = request.ServiceId,
+            AssignedCaseExecutorId = request.CaseExecutorId,
+            AssignedAssessorId = null,
+            AssignmentNotes = null,
+            AssignedByUserId = currentUserId.Value
+        };
 
-        if (service == null)
-            return NotFound("Service not found");
+        var result = await _mediator.Send(command);
 
-        // Verify the assigned user is a case executor
-        var caseExecutor = await _context.Users
-            .Include(u => u.UserRoles)
-            .ThenInclude(ur => ur.Role)
-            .FirstOrDefaultAsync(u => u.Id == request.CaseExecutorId);
-
-        if (caseExecutor == null)
-            return NotFound("Case executor not found");
-
-        var isCaseExecutor = caseExecutor.UserRoles.Any(ur => ur.Role.Name == "CaseExecutor");
-        if (!isCaseExecutor)
-            return BadRequest("User is not a case executor");
-
-        service.AssignCaseExecutor(request.CaseExecutorId);
-        await _context.SaveChangesAsync();
-
-        return HandleSuccessResponse(service);
+        return result.IsError ? HandleErrorResponse(result.Errors) : HandleSuccessResponse(result.Payload);
     }
 
     /// <summary>
     /// Get all customers with filtering
     /// </summary>
-    [HttpGet("customers")]
+    [HttpGet("GetAllCustomers")]
     public async Task<IActionResult> GetAllCustomers(
         [FromQuery] bool? isVerified = null,
         [FromQuery] string? searchTerm = null,
@@ -245,7 +240,7 @@ public class ManagerController : BaseController
             .Take(pageSize)
             .ToListAsync();
 
-        var result = new PaginatedResult<Customer>
+        var result = new Transit.Api.Contracts.MOT.Response.PaginatedResult<Customer>
         {
             Data = customers,
             TotalCount = totalCount,
@@ -260,7 +255,7 @@ public class ManagerController : BaseController
     /// <summary>
     /// Get all staff members
     /// </summary>
-    [HttpGet("staff")]
+    [HttpGet("GetAllStaff")]
     public async Task<IActionResult> GetAllStaff([FromQuery] string? role = null)
     {
         var currentUserId = JwtHelper.GetCurrentUserId(_httpContextAccessor, _context);
@@ -289,8 +284,8 @@ public class ManagerController : BaseController
     /// <summary>
     /// Get system notifications for managers
     /// </summary>
-    [HttpGet("notifications")]
-    public async Task<IActionResult> GetSystemNotifications([FromQuery] bool unreadOnly = false)
+    [HttpGet("GetNotifications")]
+    public async Task<IActionResult> GetNotifications([FromQuery] bool unreadOnly = false)
     {
         var currentUserId = JwtHelper.GetCurrentUserId(_httpContextAccessor, _context);
         if (currentUserId == null)
@@ -324,41 +319,4 @@ public class ManagerController : BaseController
 
         return user?.UserRoles.Any(ur => ur.Role.Name == "Manager") ?? false;
     }
-}
-
-public class AssignExecutorRequest
-{
-    public long CaseExecutorId { get; set; }
-}
-
-public class ManagerDashboardResponse
-{
-    public int TotalServices { get; set; }
-    public int PendingServices { get; set; }
-    public int InProgressServices { get; set; }
-    public int CompletedServices { get; set; }
-    public int TotalCustomers { get; set; }
-    public int VerifiedCustomers { get; set; }
-    public int TotalStaff { get; set; }
-    public int ActiveStaff { get; set; }
-    public List<Service> RecentServices { get; set; } = new();
-    public List<MonthlyServiceStat> MonthlyServiceStats { get; set; } = new();
-}
-
-public class MonthlyServiceStat
-{
-    public int Year { get; set; }
-    public int Month { get; set; }
-    public int TotalServices { get; set; }
-    public int CompletedServices { get; set; }
-    public double CompletionRate { get; set; }
-}
-
-public class PaginatedResult<T>
-{
-    public List<T> Data { get; set; } = new();
-    public int TotalCount { get; set; }
-    public int Page { get; set; }
-    public int PageSize { get; set; }
-    public int TotalPages { get; set; }
 }

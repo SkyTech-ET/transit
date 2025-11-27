@@ -1,4 +1,5 @@
 export interface ICustomer {
+  roles: any;
   id: number;
   userId: number;
   businessName: string;
@@ -103,6 +104,6 @@ export enum DocumentType {
 }
 
 // Import types
-import { IUser } from '../user/user.types';
+import { IUser } from '../../user/user.types';
 import { IService } from '../service/service.types';
 

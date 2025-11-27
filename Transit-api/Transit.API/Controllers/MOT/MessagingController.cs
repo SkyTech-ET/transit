@@ -4,6 +4,7 @@ using Transit.Controllers;
 using Transit.Domain.Models.Shared;
 using Transit.Domain.Data;
 using Transit.API.Helpers;
+using Transit.Api.Contracts.MOT.Request;
 
 namespace Transit.API.Controllers.MOT;
 
@@ -22,8 +23,8 @@ public class MessagingController : BaseController
         _httpContextAccessor = httpContextAccessor;
     }
 
-    [HttpPost("send")]
-    public async Task<IActionResult> SendMessage([FromBody] SendMessageRequest request)
+    [HttpPost("SendMessage")]
+    public async Task<IActionResult> SendMessage([FromBody] Transit.Api.Contracts.MOT.Request.SendMessageRequest request)
     {
         try
         {
@@ -49,8 +50,8 @@ public class MessagingController : BaseController
         }
     }
 
-    [HttpGet("service/{serviceId}")]
-    public async Task<IActionResult> GetServiceMessages(long serviceId, [FromQuery] int page = 1, [FromQuery] int pageSize = 20)
+    [HttpGet("GetServiceMessages")]
+    public async Task<IActionResult> GetServiceMessages([FromQuery] long serviceId, [FromQuery] int page = 1, [FromQuery] int pageSize = 20)
     {
         try
         {
@@ -63,8 +64,8 @@ public class MessagingController : BaseController
         }
     }
 
-    [HttpGet("user/{userId}")]
-    public async Task<IActionResult> GetUserMessages(long userId, [FromQuery] int page = 1, [FromQuery] int pageSize = 20)
+    [HttpGet("GetUserMessages")]
+    public async Task<IActionResult> GetUserMessages([FromQuery] long userId, [FromQuery] int page = 1, [FromQuery] int pageSize = 20)
     {
         try
         {
@@ -77,8 +78,8 @@ public class MessagingController : BaseController
         }
     }
 
-    [HttpGet("{messageId}")]
-    public async Task<IActionResult> GetMessage(long messageId)
+    [HttpGet("GetMessageById")]
+    public async Task<IActionResult> GetMessageById([FromQuery] long messageId)
     {
         try
         {
@@ -94,12 +95,12 @@ public class MessagingController : BaseController
         }
     }
 
-    [HttpPost("mark-read/{messageId}/{userId}")]
-    public async Task<IActionResult> MarkAsRead(long messageId, long userId)
+    [HttpPost("MarkMessageAsRead")]
+    public async Task<IActionResult> MarkMessageAsRead([FromBody] Transit.Api.Contracts.MOT.Request.MarkMessageAsReadRequest request)
     {
         try
         {
-            await _messagingService.MarkMessageAsReadAsync(messageId, userId);
+            await _messagingService.MarkMessageAsReadAsync(request.MessageId, request.UserId);
             return HandleSuccessResponse(new { Message = "Message marked as read" });
         }
         catch (Exception ex)
@@ -108,8 +109,8 @@ public class MessagingController : BaseController
         }
     }
 
-    [HttpGet("unread/{userId}")]
-    public async Task<IActionResult> GetUnreadMessages(long userId)
+    [HttpGet("GetUnreadMessages")]
+    public async Task<IActionResult> GetUnreadMessages([FromQuery] long userId)
     {
         try
         {
@@ -122,8 +123,8 @@ public class MessagingController : BaseController
         }
     }
 
-    [HttpGet("unread-count/{userId}")]
-    public async Task<IActionResult> GetUnreadCount(long userId)
+    [HttpGet("GetUnreadCount")]
+    public async Task<IActionResult> GetUnreadCount([FromQuery] long userId)
     {
         try
         {
@@ -136,8 +137,8 @@ public class MessagingController : BaseController
         }
     }
 
-    [HttpPost("group")]
-    public async Task<IActionResult> SendGroupMessage([FromBody] SendGroupMessageRequest request)
+    [HttpPost("SendGroupMessage")]
+    public async Task<IActionResult> SendGroupMessage([FromBody] Transit.Api.Contracts.MOT.Request.SendGroupMessageRequest request)
     {
         try
         {
@@ -156,23 +157,4 @@ public class MessagingController : BaseController
             return HandleErrorResponse(ex);
         }
     }
-}
-
-public class SendMessageRequest
-{
-    public long ServiceId { get; set; }
-    // SenderId is now extracted from JWT token, not required in request
-    public long? RecipientId { get; set; }
-    public string Subject { get; set; } = string.Empty;
-    public string Content { get; set; } = string.Empty;
-    public MessageType Type { get; set; }
-}
-
-public class SendGroupMessageRequest
-{
-    public long ServiceId { get; set; }
-    public long SenderId { get; set; }
-    public List<long> RecipientIds { get; set; } = new();
-    public string Subject { get; set; } = string.Empty;
-    public string Content { get; set; } = string.Empty;
 }

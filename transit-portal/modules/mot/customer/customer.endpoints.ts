@@ -2,11 +2,11 @@ import http from '@/modules/utils/axios';
 import { ICustomer, ICustomerPayload, ICustomerFilters, ICustomerApprovalRequest, DocumentType } from './customer.types';
 
 const customerEndpoints = Object.freeze({
-  getAll: '/Customer/GetAll',
-  getById: '/Customer/GetById',
-  create: '/Customer/Create',
-  update: '/Customer/Update',
-  delete: '/Customer/Delete',
+  getAll: '/User/GetAll',
+  getById: '/User/GetById',
+  create: '/User/Create',
+  update: '/User/Update',
+  delete: '/User/Delete',
   getPendingApprovals: '/Assessor/customers/pending-approval',
   approve: '/Assessor/customers',
   getDocuments: '/Customer/documents',

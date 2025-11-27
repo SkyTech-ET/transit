@@ -2,6 +2,7 @@ using Microsoft.AspNetCore.Mvc;
 using Transit.API.Services;
 using Transit.Controllers;
 using Transit.Domain.Models.Shared;
+using Transit.Api.Contracts.MOT.Request;
 
 namespace Transit.API.Controllers.MOT;
 
@@ -16,8 +17,8 @@ public class NotificationController : BaseController
         _notificationService = notificationService;
     }
 
-    [HttpGet("user/{userId}")]
-    public async Task<IActionResult> GetUserNotifications(long userId, [FromQuery] int page = 1, [FromQuery] int pageSize = 20)
+    [HttpGet("GetUserNotifications")]
+    public async Task<IActionResult> GetUserNotifications([FromQuery] long userId, [FromQuery] int page = 1, [FromQuery] int pageSize = 20)
     {
         try
         {
@@ -40,8 +41,8 @@ public class NotificationController : BaseController
         }
     }
 
-    [HttpGet("unread-count/{userId}")]
-    public async Task<IActionResult> GetUnreadCount(long userId)
+    [HttpGet("GetUnreadCount")]
+    public async Task<IActionResult> GetUnreadCount([FromQuery] long userId)
     {
         try
         {
@@ -54,12 +55,12 @@ public class NotificationController : BaseController
         }
     }
 
-    [HttpPost("mark-read/{notificationId}")]
-    public async Task<IActionResult> MarkAsRead(long notificationId)
+    [HttpPost("MarkNotificationAsRead")]
+    public async Task<IActionResult> MarkNotificationAsRead([FromBody] Transit.Api.Contracts.MOT.Request.MarkNotificationAsReadRequest request)
     {
         try
         {
-            await _notificationService.MarkNotificationAsReadAsync(notificationId);
+            await _notificationService.MarkNotificationAsReadAsync(request.NotificationId);
             return HandleSuccessResponse(new { Message = "Notification marked as read" });
         }
         catch (Exception ex)
@@ -68,12 +69,12 @@ public class NotificationController : BaseController
         }
     }
 
-    [HttpPost("mark-all-read/{userId}")]
-    public async Task<IActionResult> MarkAllAsRead(long userId)
+    [HttpPost("MarkAllNotificationsAsRead")]
+    public async Task<IActionResult> MarkAllNotificationsAsRead([FromBody] Transit.Api.Contracts.MOT.Request.MarkAllNotificationsAsReadRequest request)
     {
         try
         {
-            await _notificationService.MarkAllNotificationsAsReadAsync(userId);
+            await _notificationService.MarkAllNotificationsAsReadAsync(request.UserId);
             return HandleSuccessResponse(new { Message = "All notifications marked as read" });
         }
         catch (Exception ex)
@@ -82,8 +83,8 @@ public class NotificationController : BaseController
         }
     }
 
-    [HttpPost("create")]
-    public async Task<IActionResult> CreateNotification([FromBody] CreateNotificationRequest request)
+    [HttpPost("CreateNotification")]
+    public async Task<IActionResult> CreateNotification([FromBody] Transit.Api.Contracts.MOT.Request.CreateNotificationRequest request)
     {
         try
         {
@@ -103,8 +104,8 @@ public class NotificationController : BaseController
         }
     }
 
-    [HttpPost("bulk")]
-    public async Task<IActionResult> SendBulkNotification([FromBody] BulkNotificationRequest request)
+    [HttpPost("SendBulkNotification")]
+    public async Task<IActionResult> SendBulkNotification([FromBody] Transit.Api.Contracts.MOT.Request.BulkNotificationRequest request)
     {
         try
         {
@@ -122,21 +123,4 @@ public class NotificationController : BaseController
             return HandleErrorResponse(ex);
         }
     }
-}
-
-public class CreateNotificationRequest
-{
-    public long UserId { get; set; }
-    public string Title { get; set; } = string.Empty;
-    public string Message { get; set; } = string.Empty;
-    public NotificationType Type { get; set; }
-    public long? ServiceId { get; set; }
-}
-
-public class BulkNotificationRequest
-{
-    public List<long> UserIds { get; set; } = new();
-    public string Title { get; set; } = string.Empty;
-    public string Message { get; set; } = string.Empty;
-    public NotificationType Type { get; set; }
 }

@@ -7,6 +7,8 @@ using Microsoft.EntityFrameworkCore;
 using Transit.Controllers;
 using Transit.API.Helpers;
 using Transit.API.DTO.MasterData.Request;
+using Transit.Api.Contracts.MOT.Request;
+using Transit.Api.Contracts.MOT.Response;
 
 namespace Transit.API.Controllers.MOT;
 
@@ -27,7 +29,7 @@ public class DataEncoderController : BaseController
     /// Create a new customer
     /// </summary>
     [HttpPost("CreateCustomer")]
-    public async Task<IActionResult> CreateCustomer([FromBody] CreateCustomerRequest request)
+    public async Task<IActionResult> CreateCustomer([FromBody] Transit.API.DTO.MasterData.Request.CreateCustomerRequest request)
     {
         var currentUserId = JwtHelper.GetCurrentUserId(_httpContextAccessor, _context);
         if (currentUserId == null)
@@ -71,8 +73,8 @@ public class DataEncoderController : BaseController
     /// <summary>
     /// Get all customers created by the data encoder
     /// </summary>
-    [HttpGet("customers")]
-    public async Task<IActionResult> GetCreatedCustomers(
+    [HttpGet("GetAllCustomers")]
+    public async Task<IActionResult> GetAllCustomers(
         [FromQuery] bool? isVerified = null,
         [FromQuery] int page = 1,
         [FromQuery] int pageSize = 20)
@@ -99,7 +101,7 @@ public class DataEncoderController : BaseController
             .Take(pageSize)
             .ToListAsync();
 
-        var result = new PaginatedResult<Customer>
+        var result = new Transit.Api.Contracts.MOT.Response.PaginatedResult<Customer>
         {
             Data = customers,
             TotalCount = totalCount,
@@ -114,8 +116,8 @@ public class DataEncoderController : BaseController
     /// <summary>
     /// Create a new service request
     /// </summary>
-    [HttpPost("services")]
-    public async Task<IActionResult> CreateService([FromBody] CreateServiceRequest request)
+    [HttpPost("CreateService")]
+    public async Task<IActionResult> CreateService([FromBody] Transit.Api.Contracts.MOT.Request.CreateServiceRequest request)
     {
         var currentUserId = JwtHelper.GetCurrentUserId(_httpContextAccessor, _context);
         if (currentUserId == null)
@@ -159,8 +161,8 @@ public class DataEncoderController : BaseController
     /// <summary>
     /// Get service requests created by the data encoder
     /// </summary>
-    [HttpGet("services")]
-    public async Task<IActionResult> GetCreatedServices(
+    [HttpGet("GetAllServices")]
+    public async Task<IActionResult> GetAllServices(
         [FromQuery] ServiceStatus? status = null,
         [FromQuery] int page = 1,
         [FromQuery] int pageSize = 20)
@@ -188,7 +190,7 @@ public class DataEncoderController : BaseController
             .Take(pageSize)
             .ToListAsync();
 
-        var result = new PaginatedResult<Service>
+        var result = new Transit.Api.Contracts.MOT.Response.PaginatedResult<Service>
         {
             Data = services,
             TotalCount = totalCount,
@@ -203,8 +205,8 @@ public class DataEncoderController : BaseController
     /// <summary>
     /// Update customer information before approval
     /// </summary>
-    [HttpPut("customers/{customerId}")]
-    public async Task<IActionResult> UpdateCustomer(long customerId, [FromBody] UpdateCustomerRequest request)
+    [HttpPut("UpdateCustomer")]
+    public async Task<IActionResult> UpdateCustomer([FromBody] Transit.Api.Contracts.MOT.Request.UpdateCustomerRequest request)
     {
         var currentUserId = JwtHelper.GetCurrentUserId(_httpContextAccessor, _context);
         if (currentUserId == null)
@@ -215,7 +217,7 @@ public class DataEncoderController : BaseController
 
         var customer = await _context.Customers
             .Include(c => c.User)
-            .FirstOrDefaultAsync(c => c.Id == customerId && c.CreatedByDataEncoderId == currentUserId.Value);
+            .FirstOrDefaultAsync(c => c.Id == request.CustomerId && c.CreatedByDataEncoderId == currentUserId.Value);
 
         if (customer == null)
             return NotFound("Customer not found or not created by you");
@@ -242,7 +244,7 @@ public class DataEncoderController : BaseController
     /// <summary>
     /// Get data encoder dashboard
     /// </summary>
-    [HttpGet("dashboard")]
+    [HttpGet("GetDashboard")]
     public async Task<IActionResult> GetDashboard()
     {
         var currentUserId = JwtHelper.GetCurrentUserId(_httpContextAccessor, _context);
@@ -252,7 +254,7 @@ public class DataEncoderController : BaseController
         if (!await IsDataEncoder(currentUserId.Value))
             return Forbid("Access denied. Data Encoder role required.");
 
-        var dashboard = new DataEncoderDashboardResponse
+        var dashboard = new Transit.Api.Contracts.MOT.Response.DataEncoderDashboardResponse
         {
             TotalCustomersCreated = await _context.Customers.CountAsync(c => c.CreatedByDataEncoderId == currentUserId.Value),
             PendingCustomerApprovals = await _context.Customers.CountAsync(c => c.CreatedByDataEncoderId == currentUserId.Value && !c.IsVerified),
@@ -332,36 +334,3 @@ public class DataEncoderController : BaseController
 
 
 
-public class CreateServiceRequest
-{
-    public long CustomerId { get; set; }
-    public string ItemDescription { get; set; } = string.Empty;
-    public string RouteCategory { get; set; } = string.Empty;
-    public decimal DeclaredValue { get; set; }
-    public string TaxCategory { get; set; } = string.Empty;
-    public string CountryOfOrigin { get; set; } = string.Empty;
-    public ServiceType ServiceType { get; set; }
-}
-
-public class UpdateCustomerRequest
-{
-    public string BusinessName { get; set; } = string.Empty;
-    public string BusinessAddress { get; set; } = string.Empty;
-    public string City { get; set; } = string.Empty;
-    public string State { get; set; } = string.Empty;
-    public string PostalCode { get; set; } = string.Empty;
-    public string ContactPerson { get; set; } = string.Empty;
-    public string ContactPhone { get; set; } = string.Empty;
-    public string ContactEmail { get; set; } = string.Empty;
-}
-
-public class DataEncoderDashboardResponse
-{
-    public int TotalCustomersCreated { get; set; }
-    public int PendingCustomerApprovals { get; set; }
-    public int TotalServicesCreated { get; set; }
-    public int PendingServiceApprovals { get; set; }
-    public int DraftServices { get; set; }
-    public List<Customer> RecentCustomers { get; set; } = new();
-    public List<Service> RecentServices { get; set; } = new();
-}

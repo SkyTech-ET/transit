@@ -4,87 +4,128 @@ import {
   Card,
   Table,
   Tag,
-  Avatar,
   Button,
   Input,
   Space,
-  Select,
-  Pagination,
+  Popconfirm,
+  Drawer,
+  Descriptions,
 } from "antd";
-import {
-  EyeOutlined,
-  EditOutlined,
-  DeleteOutlined,
-  PlusOutlined,
-} from "@ant-design/icons";
-import { useEmployeeStore } from "@/modules/employees";
-import { IEmployee } from "@/modules/employees";
+import { Eye, PencilLine, Trash2, Users, Plus } from "lucide-react";
+import { useUserStore } from "@/modules/user";
 import { useRouter } from "next/navigation";
 
 const EmployeeListPage = () => {
   const router = useRouter();
-  const { employees, loading, getEmployees, deleteEmployee } =
-    useEmployeeStore();
+  const { users, loading, getUsers, deleteUser } = useUserStore();
+
   const [search, setSearch] = useState("");
-  const [department, setDepartment] = useState("All");
+  const [selectedEmployee, setSelectedEmployee] = useState<any>(null);
+  const [isDrawerOpen, setIsDrawerOpen] = useState(false);
+
+  // Employee role IDs
+  const employeeRoles = [3, 4, 5];
+
+  // Role name map
+  const roleMap: Record<number, string> = {
+    3: "Data Encoder",
+    5: "Assessor",
+    4: "Case Executor",
+  };
+
+  // Role color map
+  const roleColorMap: Record<number, string> = {
+    3: "purple",
+    4: "blue",
+    5: "green",
+  };
 
   useEffect(() => {
-    getEmployees();
+    getUsers(2); // fetch active users
   }, []);
 
-  const handleDelete = async (id: number) => {
-    await deleteEmployee(id);
+  // Open drawer with selected employee
+  const handleView = (record: any) => {
+    setSelectedEmployee(record);
+    setIsDrawerOpen(true);
   };
+
+  // Filter employees + search
+  const employees = users.filter((user) => {
+    const hasEmployeeRole = user.userRoles?.some((r) =>
+      employeeRoles.includes(r.roleId)
+    );
+
+    if (!hasEmployeeRole) return false;
+
+    const keyword = search.toLowerCase();
+    return (
+      user.username?.toLowerCase().includes(keyword) ||
+      user.firstName?.toLowerCase().includes(keyword) ||
+      user.lastName?.toLowerCase().includes(keyword) ||
+      user.email?.toLowerCase().includes(keyword)
+    );
+  });
 
   const columns = [
     {
       title: "Name",
-      dataIndex: "name",
-      render: (text: string, record: IEmployee) => (
-        <div className="flex items-center gap-2">
-          <Avatar src={record.avatarUrl} />
-          <div>
-            <p className="font-medium">{record.name}</p>
-            <span className="text-xs text-gray-500">{record.employeeCode}</span>
-          </div>
+      dataIndex: "firstName",
+      render: (_: any, record: any) => (
+        <div>
+          <p className="font-medium">
+            {record.firstName} {record.lastName}
+          </p>
+          <span className="text-xs text-gray-500">{record.username}</span>
         </div>
       ),
     },
-    { title: "Position", dataIndex: "position" },
     {
-      title: "Department",
-      dataIndex: "department",
-      render: (d: string) => (
-        <Tag color="blue" className="capitalize">
-          {d}
+      title: "Email",
+      dataIndex: "email",
+    },
+    {
+      title: "Phone",
+      dataIndex: "phone",
+    },
+    {
+      title: "Role",
+      dataIndex: "userRoles",
+      render: (roles: any[]) =>
+        roles
+          ?.filter((r) => employeeRoles.includes(r.roleId))
+          .map((r, index) => (
+            <Tag color={roleColorMap[r.roleId]} key={index}>
+              {roleMap[r.roleId] || `Role ${r.roleId}`}
+            </Tag>
+          )),
+    },
+    {
+      title: "Status",
+      dataIndex: "recordStatus",
+      render: (status: number) => (
+        <Tag color={status === 2 ? "green" : "red"}>
+          {status === 2 ? "Active" : "Inactive"}
         </Tag>
       ),
     },
     {
-      title: "Status",
-      dataIndex: "status",
-      render: (status: string) => {
-        const color =
-          status === "Active"
-            ? "green"
-            : status === "On Leave"
-            ? "gold"
-            : "red";
-        return <Tag color={color}>{status}</Tag>;
-      },
-    },
-    { title: "Email", dataIndex: "email" },
-    {
       title: "Actions",
-      render: (_: any, record: IEmployee) => (
+      render: (_: any, record: any) => (
         <Space>
-          <Button icon={<EyeOutlined />} />
-          <Button icon={<EditOutlined />} />
+          <Button icon={<Eye size={16} />} onClick={() => handleView(record)} />
+
           <Button
-            danger
-            icon={<DeleteOutlined />}
-            onClick={() => handleDelete(record.id)}
+            icon={<PencilLine size={16} />}
+            onClick={() => router.push(`/admin/user/edit/${record.id}`)}
           />
+
+          <Popconfirm
+            title="Delete employee?"
+            onConfirm={() => deleteUser(record.id)}
+          >
+            <Button danger icon={<Trash2 size={16} />} />
+          </Popconfirm>
         </Space>
       ),
     },
@@ -92,13 +133,11 @@ const EmployeeListPage = () => {
 
   return (
     <Card className="p-6">
+      {/* Header */}
       <div className="flex justify-between mb-4">
-        <div>
-          <h2 className="text-xl font-semibold">Employees</h2>
-          <p className="text-gray-500 text-sm">
-            Showing {employees.length} employees
-          </p>
-        </div>
+        <h2 className="text-xl font-semibold flex items-center gap-2">
+          <Users size={20} /> Employee Management
+        </h2>
 
         <Space>
           <Input
@@ -107,20 +146,10 @@ const EmployeeListPage = () => {
             onChange={(e) => setSearch(e.target.value)}
             className="w-64"
           />
-          <Select
-            defaultValue="All"
-            style={{ width: 150 }}
-            onChange={(v) => setDepartment(v)}
-            options={[
-              { value: "All", label: "All Departments" },
-              { value: "HR", label: "HR" },
-              { value: "Sales", label: "Sales" },
-              { value: "IT", label: "IT" },
-            ]}
-          />
+
           <Button
             type="primary"
-            icon={<PlusOutlined />}
+            icon={<Plus size={16} />}
             onClick={() => router.push("/admin/user/create")}
           >
             Add Employee
@@ -128,17 +157,98 @@ const EmployeeListPage = () => {
         </Space>
       </div>
 
+      {/* Table */}
       <Table
         columns={columns}
         dataSource={employees}
         loading={loading}
         rowKey="id"
-        pagination={false}
       />
 
-      <div className="flex justify-end mt-4">
-        <Pagination current={1} total={24} pageSize={5} />
-      </div>
+      {/* Employee Detail Drawer */}
+      <Drawer
+        title="Employee Details"
+        open={isDrawerOpen}
+        onClose={() => setIsDrawerOpen(false)}
+        width={420}
+      >
+        {selectedEmployee && (
+          <div className="space-y-4">
+            {/* Profile Section */}
+            <div className="flex items-center gap-3">
+              <img
+                src={`${process.env.NEXT_PUBLIC_API_URL}/${selectedEmployee.profilePhoto}`}
+                alt="profile"
+                className="w-16 h-16 rounded-full object-cover border"
+              />
+              <div>
+                <p className="text-lg font-semibold">
+                  {selectedEmployee.firstName} {selectedEmployee.lastName}
+                </p>
+                <p className="text-gray-500 text-sm">
+                  {selectedEmployee.username}
+                </p>
+              </div>
+            </div>
+
+            {/* Info Section */}
+            <Descriptions column={1} bordered size="small">
+              <Descriptions.Item label="Email">
+                {selectedEmployee.email}
+              </Descriptions.Item>
+
+              <Descriptions.Item label="Phone">
+                {selectedEmployee.phone}
+              </Descriptions.Item>
+
+              <Descriptions.Item label="Role">
+                {selectedEmployee.userRoles?.map((r: any, i: number) => (
+                  <Tag color={roleColorMap[r.roleId]} key={i}>
+                    {roleMap[r.roleId]}
+                  </Tag>
+                ))}
+              </Descriptions.Item>
+
+              <Descriptions.Item label="Status">
+                <Tag
+                  color={
+                    selectedEmployee.recordStatus === 2 ? "green" : "red"
+                  }
+                >
+                  {selectedEmployee.recordStatus === 2
+                    ? "Active"
+                    : "Inactive"}
+                </Tag>
+              </Descriptions.Item>
+
+              <Descriptions.Item label="Registered">
+                {new Date(
+                  selectedEmployee.registeredDate
+                ).toLocaleString()}
+              </Descriptions.Item>
+
+              <Descriptions.Item label="Last Updated">
+                {new Date(
+                  selectedEmployee.lastUpdateDate
+                ).toLocaleString()}
+              </Descriptions.Item>
+            </Descriptions>
+
+            {/* Action Buttons */}
+            <div className="flex justify-end gap-2">
+              <Button
+                type="primary"
+                onClick={() =>
+                  router.push(`/admin/user/edit/${selectedEmployee.id}`)
+                }
+              >
+                Edit
+              </Button>
+              <Button onClick={() => setIsDrawerOpen(false)}>Close</Button>
+            </div>
+          </div>
+        )}
+      </Drawer>
     </Card>
   );
 };

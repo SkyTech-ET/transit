@@ -1,10 +1,10 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
-import { Card, Form, Input, Select, InputNumber, Button, message, Row, Col } from "antd";
+import { Card, Form, Input, Select, Button, message, Row, Col } from "antd";
 import { Save, ArrowLeft } from "lucide-react";
 import { useServiceStore, ServiceType, RiskLevel } from "@/modules/mot/service";
-import { useCustomerStore } from "@/modules/mot/customer";
+import { useUserStore } from "@/modules/user";   // <-- we use user store
 import { useRouter } from "next/navigation";
 
 const { Option } = Select;
@@ -13,12 +13,17 @@ const { TextArea } = Input;
 const CreateServicePage = () => {
   const router = useRouter();
   const { createService, loading } = useServiceStore();
-  const { customers, getAllCustomers } = useCustomerStore();
+  const { users, getUsers } = useUserStore();
   const [form] = Form.useForm();
 
   useEffect(() => {
-    getAllCustomers();
-  }, [getAllCustomers]);
+    getUsers(2); // load all active users
+  }, []);
+
+  // 🔥 FILTER ONLY CUSTOMERS
+  const customers = users.filter(user =>
+    user.userRoles?.some(role => role.roleId === 3)
+  );
 
   const handleSubmit = async (values: any) => {
     try {
@@ -26,6 +31,7 @@ const CreateServicePage = () => {
       message.success("Service created successfully");
       router.push("/admin/mot/services");
     } catch (error) {
+      console.log(error);
       message.error("Failed to create service");
     }
   };
@@ -39,10 +45,7 @@ const CreateServicePage = () => {
       <Card
         title={
           <div className="flex items-center gap-2">
-            <ArrowLeft 
-              className="cursor-pointer" 
-              onClick={handleCancel}
-            />
+            <ArrowLeft className="cursor-pointer" onClick={handleCancel} />
             <span>Create New Service</span>
           </div>
         }
@@ -56,28 +59,55 @@ const CreateServicePage = () => {
           <Row gutter={16}>
             <Col span={12}>
               <Form.Item
-                name="serviceNumber"
-                label="Service Number"
-                rules={[{ required: true, message: "Please enter service number" }]}
-              >
-                <Input placeholder="Enter service number" />
-              </Form.Item>
-            </Col>
-            <Col span={12}>
-              <Form.Item
                 name="serviceType"
                 label="Service Type"
                 rules={[{ required: true, message: "Please select service type" }]}
               >
                 <Select placeholder="Select service type">
                   {Object.entries(ServiceType)
-                    .filter(([_, value]) => typeof value === 'number')
-                    .map(([key, value]) => (
-                      <Option key={value} value={value}>
+                    .filter(([_, val]) => typeof val === "number")
+                    .map(([key, val]) => (
+                      <Option key={val} value={val}>
                         {key}
                       </Option>
                     ))}
                 </Select>
+              </Form.Item>
+            </Col>
+
+            <Col span={12}>
+              <Form.Item
+                name="routeCategory"
+                label="Route Category"
+                rules={[{ required: true, message: "Please enter route category" }]}
+              >
+                <Input placeholder="Enter route category" />
+              </Form.Item>
+            </Col>
+          </Row>
+
+          <Row gutter={16}>
+            <Col span={12}>
+              <Form.Item
+                name="countryOfOrigin"
+                label="Country of Origin"
+                rules={[
+                  { required: true, message: "Please enter country of origin" },
+                ]}
+              >
+                <Input placeholder="Enter country of origin" />
+              </Form.Item>
+            </Col>
+
+            <Col span={12}>
+              <Form.Item
+                name="declaredValue"
+                label="Declared Value"
+                rules={[
+                  { required: true, message: "Please enter declared value" },
+                ]}
+              >
+                <Input placeholder="Enter declared value" type="number" />
               </Form.Item>
             </Col>
           </Row>
@@ -87,78 +117,28 @@ const CreateServicePage = () => {
               <Form.Item
                 name="itemDescription"
                 label="Item Description"
-                rules={[{ required: true, message: "Please enter item description" }]}
+                rules={[
+                  { required: true, message: "Please enter item description" },
+                ]}
               >
-                <TextArea rows={3} placeholder="Enter detailed item description" />
+                <TextArea rows={3} placeholder="Enter item description" />
               </Form.Item>
             </Col>
           </Row>
 
           <Row gutter={16}>
-            <Col span={12}>
-              {/* <Form.Item
-                name="routeCategory"
-                label="Route Category"
-                rules={[{ required: true, message: "Please enter route category" }]}
-              >
-                <Input placeholder="Enter route category" />
-              </Form.Item>
-            </Col>
-            <Col span={12}>
-              <Form.Item
-                name="countryOfOrigin"
-                label="Country of Origin"
-                rules={[{ required: true, message: "Please enter country of origin" }]}
-              >
-                <Input placeholder="Enter country of origin" />
-              </Form.Item> */}
-            </Col>
-          </Row>
-
-          <Row gutter={16}>
-            <Col span={12}>
-              {/* <Form.Item
-                name="declaredValue"
-                label="Declared Value"
-                rules={[{ required: true, message: "Please enter declared value" }]}
-              >
-                <InputNumber
-                  style={{ width: '100%' }}
-                  placeholder="Enter declared value"
-                  formatter={value => `$ ${value}`.replace(/\B(?=(\d{3})+(?!\d))/g, ',')}
-                  parser={value => value!.replace(/\$\s?|(,*)/g, '')}
-                />
-              </Form.Item> */}
-            </Col>
             <Col span={12}>
               <Form.Item
                 name="taxCategory"
                 label="Tax Category"
-                rules={[{ required: true, message: "Please enter tax category" }]}
+                rules={[
+                  { required: true, message: "Please enter tax category" },
+                ]}
               >
                 <Input placeholder="Enter tax category" />
               </Form.Item>
             </Col>
-          </Row>
-
-          <Row gutter={16}>
-            <Col span={12}>
-              <Form.Item
-                name="riskLevel"
-                label="Risk Level"
-                rules={[{ required: true, message: "Please select risk level" }]}
-              >
-                <Select placeholder="Select risk level">
-                  {Object.entries(RiskLevel)
-                    .filter(([_, value]) => typeof value === 'number')
-                    .map(([key, value]) => (
-                      <Option key={value} value={value}>
-                        {key}
-                      </Option>
-                    ))}
-                </Select>
-              </Form.Item>
-            </Col>
+       {/*  CUSTOMER DROPDOWN  */}
             <Col span={12}>
               <Form.Item
                 name="customerId"
@@ -168,7 +148,7 @@ const CreateServicePage = () => {
                 <Select placeholder="Select customer">
                   {customers.map((customer) => (
                     <Option key={customer.id} value={customer.id}>
-                      {customer.contactPerson} ({customer.contactEmail})
+                      {customer.firstName} {customer.lastName} ({customer.email})
                     </Option>
                   ))}
                 </Select>
@@ -176,10 +156,11 @@ const CreateServicePage = () => {
             </Col>
           </Row>
 
+        
+         
+
           <div className="flex justify-end gap-2 mt-6">
-            <Button onClick={handleCancel}>
-              Cancel
-            </Button>
+            <Button onClick={handleCancel}>Cancel</Button>
             <Button
               type="primary"
               htmlType="submit"
@@ -196,5 +177,3 @@ const CreateServicePage = () => {
 };
 
 export default CreateServicePage;
-
-

@@ -2,6 +2,7 @@ import { RecordStatus } from "../common/common.types";
 import { IPrivilege } from "../privilege/privilege.types";
 
 export interface IRole {
+  roleId: number;
   id: number;
   roleName: string;
   description: string;
